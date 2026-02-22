@@ -1225,7 +1225,7 @@ else:
 st.markdown(
     '<div class="app-footer">'
     'UK National Curriculum Worksheet Generator &middot; '
-    'English, Maths, Science, History, Geography, Computing, Languages (Year 1\u20136) &middot; '
+    'English, Maths, Science, History, Geography, Computing (Year 1\u20136) &middot; Languages (Year 3\u20136) &middot; '
     'Powered by Claude AI</div>',
     unsafe_allow_html=True,
 )
