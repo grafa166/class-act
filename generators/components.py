@@ -356,7 +356,7 @@ def add_word_bank(doc, word_bank_data, level='expected'):
     p_key.alignment = WD_ALIGN_PARAGRAPH.CENTER
     set_no_spacing(p_key)
     p_key.paragraph_format.space_after = Pt(6)
-    run_key = p_key.add_run('Match the colour and symbol to find the right word!')
+    run_key = p_key.add_run('Look for the same symbol to find the right word!')
     set_run_font(run_key, size=Pt(11), italic=True, colour=COLOURS['grey_text'])
 
     # Grid layout
@@ -383,11 +383,12 @@ def add_word_bank(doc, word_bank_data, level='expected'):
         set_cell_borders(cell, wt['border'], sz=10)
         set_cell_padding(cell, top=80, bottom=80, left=120, right=120)
 
-        # Category header
+        # Category header — always use WORD_TYPES symbol + label for consistency
         p = cell.paragraphs[0]
         set_no_spacing(p)
         p.paragraph_format.space_after = Pt(3)
-        run = p.add_run(category['label'])
+        header_text = f'{wt["symbol"]} {wt["label"]}'
+        run = p.add_run(header_text)
         set_run_font(run, size=Pt(font_size), bold=True, colour=wt['text'])
 
         words = category['words']
@@ -464,34 +465,24 @@ def add_cloze_paragraph(cell_or_doc, pieces, level='expected', is_first=False, s
                 answer_run = p.add_run(f' [{answer_text}] ')
                 set_run_font(answer_run, size=body_size, bold=True, colour=wt['text'])
             else:
-                # Student mode: show blank with hints/choices
-                # Symbol prefix
-                symbol_run = p.add_run(f' {wt["symbol"]}')
+                # Student mode: symbol + blank, all inline so the sentence reads cleanly
+                symbol_run = p.add_run(f' {wt["symbol"]} ')
                 set_run_font(symbol_run, size=body_size, bold=True, colour=wt['text'])
 
-                # Underline blank
-                blank_run = p.add_run(' ________________ ')
+                blank_run = p.add_run('__________ ')
                 set_run_font(blank_run, size=body_size, bold=True, colour=wt['text'])
 
                 if is_dev and choices:
-                    # Developing: show word choices
-                    br_run = p.add_run()
-                    br_run.add_break()
-                    choices_text = '     ' + wt['symbol'] + ' Choose:  ' + '   /   '.join(choices)
-                    choice_run = p.add_run(choices_text)
-                    set_run_font(choice_run, size=Pt(14), bold=True, italic=True, colour=wt['text'])
-                    br_run2 = p.add_run()
-                    br_run2.add_break()
+                    # Developing: show choices inline in brackets
+                    choices_str = ' / '.join(choices)
+                    choice_run = p.add_run(f'({choices_str}) ')
+                    hint_size = Pt(diff['font_size'] - 2)
+                    set_run_font(choice_run, size=hint_size, italic=True, colour=wt['text'])
                 elif hint:
-                    # Expected/Greater Depth: show hint
-                    br_run = p.add_run()
-                    br_run.add_break()
-                    hint_with_label = f'     {wt["symbol"]} {wt["label"]}: {hint}'
-                    hint_run = p.add_run(hint_with_label)
-                    hint_size = Pt(10) if level == 'greater_depth' else Pt(9)
+                    # Expected/Greater Depth: show hint inline in brackets
+                    hint_run = p.add_run(f'({hint}) ')
+                    hint_size = Pt(diff['font_size'] - 4)
                     set_run_font(hint_run, size=hint_size, italic=True, colour=wt['text'])
-                    br_run2 = p.add_run()
-                    br_run2.add_break()
 
 
 def add_section_body(doc, paragraphs_data, theme_key='classic', level='expected', show_answers=False):
