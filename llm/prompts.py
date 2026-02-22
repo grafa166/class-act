@@ -1,18 +1,97 @@
 """
 Prompt templates for UK Primary School worksheet generation.
 
-Contains detailed prompt templates for 5 worksheet types:
+Contains detailed prompt templates for 8 worksheet types:
 - CLOZE: Fill-in-the-blank passage with differentiated levels
 - WORD_BANK: Vocabulary exploration activities
 - MATCHING: Word-to-definition matching activities
 - SENTENCE_BUILDER: Sentence construction exercises
 - READING_COMPREHENSION: Reading passage with comprehension questions
+- PROBLEM_SOLVING: Maths word problems with structured questions
+- CALCULATION_PRACTICE: Maths calculation exercises with working space
+- INVESTIGATION: Science investigation planning template
 
 Each prompt is designed to elicit structured JSON output from Claude
 that matches the exact schema required by the worksheet generators.
+
+Prompts are subject-aware: word types and context are injected based
+on the selected subject (English, Maths, Science, History, etc.).
 """
 
 from typing import Dict, Callable
+
+
+# =============================================================================
+# SUBJECT-SPECIFIC WORD TYPES AND CONTEXT
+# =============================================================================
+
+SUBJECT_WORD_TYPES = {
+    "English": """WORD TYPES - Use these exact word_type values and corresponding labels:
+- "time" with label "\\u23f0 When? (Time words)"
+- "adjective" with label "\\u2b50 Describing Words (Adjectives)"
+- "verb" with label "\\u26a1 Doing Words (Verbs)"
+- "noun" with label "\\u25cf Things & Places (Nouns)"
+- "name" with label "\\u2605 Names (Proper Nouns)"
+- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+
+    "Maths": """WORD TYPES - Use these exact word_type values for colour-coding mathematical concepts:
+- "operation" with label "\\u2795 Operations (+, -, \\u00d7, \\u00f7)"
+- "shape" with label "\\u25b3 Shape & Space"
+- "measure" with label "\\U0001f4cf Measurement"
+- "number" with label "# Number & Place Value"
+- "vocabulary" with label "\\u2b50 Maths Vocabulary"
+- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+
+    "Science": """WORD TYPES - Use these exact word_type values for colour-coding scientific concepts:
+- "process" with label "\\u2699 Scientific Processes"
+- "equipment" with label "\\U0001f52c Equipment & Tools"
+- "organism" with label "\\U0001f331 Living Things"
+- "material" with label "\\U0001f9f1 Materials & Properties"
+- "vocabulary" with label "\\u2b50 Science Vocabulary"
+- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+
+    "History": """WORD TYPES - Use these exact word_type values for colour-coding historical concepts:
+- "event" with label "\\U0001f4c5 Events"
+- "person" with label "\\U0001f464 People"
+- "place" with label "\\U0001f4cd Places"
+- "date" with label "\\u23f3 Dates & Periods"
+- "vocabulary" with label "\\u2b50 History Vocabulary"
+- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+
+    "Geography": """WORD TYPES - Use these exact word_type values for colour-coding geographical concepts:
+- "place" with label "\\U0001f4cd Places"
+- "feature" with label "\\u26f0 Physical Features"
+- "process" with label "\\u2699 Geographical Processes"
+- "climate" with label "\\U0001f321 Climate & Weather"
+- "vocabulary" with label "\\u2b50 Geography Vocabulary"
+- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+
+    "Computing": """WORD TYPES - Use these exact word_type values for colour-coding computing concepts:
+- "algorithm" with label "\\u2699 Algorithms"
+- "data" with label "\\U0001f4ca Data"
+- "hardware" with label "\\U0001f5a5 Hardware"
+- "software" with label "\\U0001f4bb Software"
+- "vocabulary" with label "\\u2b50 Computing Vocabulary"
+- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+
+    "Languages": """WORD TYPES - Use these exact word_type values for colour-coding language learning:
+- "noun" with label "\\u25cf Naming Words (Nouns)"
+- "verb" with label "\\u26a1 Doing Words (Verbs)"
+- "adjective" with label "\\u2b50 Describing Words (Adjectives)"
+- "phrase" with label "\\U0001f4ac Phrases & Expressions"
+- "vocabulary" with label "\\u2b50 Key Vocabulary"
+- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+}
+
+SUBJECT_CONTEXT = {
+    "English": "This is an English language and literacy worksheet focusing on grammar, vocabulary, reading, or writing skills.",
+    "Maths": "This is a mathematics worksheet. Use age-appropriate mathematical language and notation. Problems should involve real-world contexts where appropriate. Use UK spelling (e.g. 'centre' not 'center', 'colour' not 'color').",
+    "Science": "This is a science worksheet. Use proper scientific terminology appropriate for the year group. Include observational and investigative thinking where appropriate.",
+    "History": "This is a history worksheet. Use historically accurate content. Include dates, key figures, and cause-and-effect relationships. Help pupils understand chronology and historical significance.",
+    "Geography": "This is a geography worksheet. Use correct geographical terminology. Include references to real places, features, and processes. Help pupils develop spatial awareness and understanding of human-environment interactions.",
+    "Computing": "This is a computing worksheet. Use correct computing terminology (algorithm, variable, debug, etc.). Content should be practical and relate to real-world technology use where appropriate.",
+    "Languages": "This is a foreign language learning worksheet. Include the target language words/phrases alongside English translations. Focus on building vocabulary, simple grammar patterns, and communication skills.",
+}
 
 
 # =============================================================================
@@ -22,13 +101,16 @@ from typing import Dict, Callable
 CLOZE_PROMPT = """You are an expert UK primary school teacher creating a cloze (fill-in-the-blank) worksheet for {year_group} pupils (aged {age_range}).
 
 CURRICULUM CONTEXT:
-- Subject/Topic: {topic}
+- Subject: {subject}
+- Topic: {topic}
 - Learning Objective: {objective}
 - Theme: {theme_name} {theme_icon}
 - Differentiation Level: {level}
 
+{subject_context}
+
 YOUR TASK:
-Create an engaging cloze passage themed around "{theme_name}" that helps pupils work towards the learning objective. The passage should tell a coherent, imaginative story or explanation that weaves in vocabulary and grammar concepts from the curriculum objective.
+Create an engaging cloze passage themed around "{theme_name}" that helps pupils work towards the learning objective. The passage should tell a coherent, imaginative story or explanation that weaves in key vocabulary and concepts from the curriculum objective.
 
 DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
 
@@ -59,13 +141,7 @@ If the level is "greater_depth":
 - Word bank entries should NOT include "definition" fields
 - Keep "reminder" prompts minimal or omit them
 
-WORD TYPES - Use these exact word_type values and corresponding labels:
-- "time" with label "\\u23f0 When? (Time words)"
-- "adjective" with label "\\u2b50 Describing Words (Adjectives)"
-- "verb" with label "\\u26a1 Doing Words (Verbs)"
-- "noun" with label "\\u25cf Things & Places (Nouns)"
-- "name" with label "\\u2605 Names (Proper Nouns)"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)
+{word_types_section}
 
 YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
 
@@ -78,7 +154,7 @@ YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text o
       "paragraphs": [
         [
           {{"type": "text", "text": "<text before the blank>"}},
-          {{"type": "blank", "word_type": "<one of: time, adjective, verb, noun, name, open>", "answer": "<the correct word>", "hint": "<descriptive hint for expected/greater_depth>", "choices": ["<option1>", "<option2>", "<option3>"]}},
+          {{"type": "blank", "word_type": "<one of the word_type values listed above>", "answer": "<the correct word>", "hint": "<descriptive hint for expected/greater_depth>", "choices": ["<option1>", "<option2>", "<option3>"]}},
           {{"type": "text", "text": "<text after the blank>"}}
         ]
       ]
@@ -124,6 +200,7 @@ def get_cloze_prompt(
     theme_name: str,
     theme_icon: str,
     level: str,
+    subject: str = "English",
 ) -> str:
     """
     Build a complete cloze worksheet prompt with all placeholders filled.
@@ -136,6 +213,7 @@ def get_cloze_prompt(
         theme_name: e.g. "Space Explorer"
         theme_icon: e.g. "rocket emoji"
         level: One of "developing", "expected", or "greater_depth"
+        subject: The curriculum subject (e.g. "English", "Maths", "Science")
 
     Returns:
         The fully formatted prompt string ready to send to Claude.
@@ -148,6 +226,9 @@ def get_cloze_prompt(
         theme_name=theme_name,
         theme_icon=theme_icon,
         level=level,
+        subject=subject,
+        subject_context=SUBJECT_CONTEXT.get(subject, ""),
+        word_types_section=SUBJECT_WORD_TYPES.get(subject, SUBJECT_WORD_TYPES["English"]),
     )
 
 
@@ -158,10 +239,13 @@ def get_cloze_prompt(
 WORD_BANK_PROMPT = """You are an expert UK primary school teacher creating a vocabulary / word bank worksheet for {year_group} pupils (aged {age_range}).
 
 CURRICULUM CONTEXT:
-- Subject/Topic: {topic}
+- Subject: {subject}
+- Topic: {topic}
 - Learning Objective: {objective}
 - Theme: {theme_name} {theme_icon}
 - Differentiation Level: {level}
+
+{subject_context}
 
 YOUR TASK:
 Create a vocabulary exploration worksheet themed around "{theme_name}" that builds pupils' word knowledge in line with the curriculum objective. The worksheet should include categorised word banks and engaging sentence-based activities.
@@ -195,13 +279,7 @@ If the level is "greater_depth":
 - Use rich, sophisticated vocabulary that challenges higher-ability pupils
 - Sentences should be longer and more complex (10-20 words)
 
-WORD TYPES - Use these exact word_type values and labels:
-- "noun" with label "\\u25cf Naming Words (Nouns)"
-- "adjective" with label "\\u2b50 Describing Words (Adjectives)"
-- "verb" with label "\\u26a1 Doing Words (Verbs)"
-- "adverb" with label "\\u27a1 How Words (Adverbs)"
-- "connective" with label "\\u26d3 Joining Words (Connectives)"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)
+{word_types_section}
 
 YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
 
@@ -209,7 +287,7 @@ YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text o
   "title": "<A creative, engaging title for the vocabulary worksheet>",
   "categories": [
     {{
-      "word_type": "<one of: noun, adjective, verb, adverb, connective>",
+      "word_type": "<one of the word_type values listed above>",
       "label": "<matching label from the word types list above>",
       "words": [
         {{"word": "<vocabulary word>", "definition": "<child-friendly definition - ONLY for developing level, omit key entirely for others>"}}
@@ -262,22 +340,9 @@ def get_word_bank_prompt(
     theme_name: str,
     theme_icon: str,
     level: str,
+    subject: str = "English",
 ) -> str:
-    """
-    Build a complete word bank worksheet prompt with all placeholders filled.
-
-    Args:
-        year_group: e.g. "Year 3"
-        topic: e.g. "Writing - Myths & Legends"
-        objective: e.g. "Plan, draft, and write narratives..."
-        age_range: e.g. "7-8"
-        theme_name: e.g. "Space Explorer"
-        theme_icon: e.g. "rocket emoji"
-        level: One of "developing", "expected", or "greater_depth"
-
-    Returns:
-        The fully formatted prompt string ready to send to Claude.
-    """
+    """Build a complete word bank worksheet prompt with all placeholders filled."""
     return WORD_BANK_PROMPT.format(
         year_group=year_group,
         topic=topic,
@@ -286,6 +351,9 @@ def get_word_bank_prompt(
         theme_name=theme_name,
         theme_icon=theme_icon,
         level=level,
+        subject=subject,
+        subject_context=SUBJECT_CONTEXT.get(subject, ""),
+        word_types_section=SUBJECT_WORD_TYPES.get(subject, SUBJECT_WORD_TYPES["English"]),
     )
 
 
@@ -296,13 +364,16 @@ def get_word_bank_prompt(
 MATCHING_PROMPT = """You are an expert UK primary school teacher creating a matching / connecting worksheet for {year_group} pupils (aged {age_range}).
 
 CURRICULUM CONTEXT:
-- Subject/Topic: {topic}
+- Subject: {subject}
+- Topic: {topic}
 - Learning Objective: {objective}
 - Theme: {theme_name} {theme_icon}
 - Differentiation Level: {level}
 
+{subject_context}
+
 YOUR TASK:
-Create a matching activity worksheet themed around "{theme_name}" where pupils draw lines to connect related items (words to definitions, synonyms, antonyms, sentence halves, etc.). The content should support the curriculum learning objective.
+Create a matching activity worksheet themed around "{theme_name}" where pupils draw lines to connect related items (words to definitions, terms to explanations, concepts to examples, etc.). The content should support the curriculum learning objective.
 
 DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
 
@@ -378,22 +449,9 @@ def get_matching_prompt(
     theme_name: str,
     theme_icon: str,
     level: str,
+    subject: str = "English",
 ) -> str:
-    """
-    Build a complete matching worksheet prompt with all placeholders filled.
-
-    Args:
-        year_group: e.g. "Year 3"
-        topic: e.g. "Writing - Myths & Legends"
-        objective: e.g. "Plan, draft, and write narratives..."
-        age_range: e.g. "7-8"
-        theme_name: e.g. "Space Explorer"
-        theme_icon: e.g. "rocket emoji"
-        level: One of "developing", "expected", or "greater_depth"
-
-    Returns:
-        The fully formatted prompt string ready to send to Claude.
-    """
+    """Build a complete matching worksheet prompt with all placeholders filled."""
     return MATCHING_PROMPT.format(
         year_group=year_group,
         topic=topic,
@@ -402,6 +460,8 @@ def get_matching_prompt(
         theme_name=theme_name,
         theme_icon=theme_icon,
         level=level,
+        subject=subject,
+        subject_context=SUBJECT_CONTEXT.get(subject, ""),
     )
 
 
@@ -412,10 +472,13 @@ def get_matching_prompt(
 SENTENCE_BUILDER_PROMPT = """You are an expert UK primary school teacher creating a sentence building worksheet for {year_group} pupils (aged {age_range}).
 
 CURRICULUM CONTEXT:
-- Subject/Topic: {topic}
+- Subject: {subject}
+- Topic: {topic}
 - Learning Objective: {objective}
 - Theme: {theme_name} {theme_icon}
 - Differentiation Level: {level}
+
+{subject_context}
 
 YOUR TASK:
 Create a sentence construction worksheet themed around "{theme_name}" where pupils arrange given words/phrases into complete sentences. Each exercise provides word parts that pupils must reorder and write as a proper sentence. The content should reinforce the curriculum learning objective.
@@ -512,22 +575,9 @@ def get_sentence_builder_prompt(
     theme_name: str,
     theme_icon: str,
     level: str,
+    subject: str = "English",
 ) -> str:
-    """
-    Build a complete sentence builder worksheet prompt with all placeholders filled.
-
-    Args:
-        year_group: e.g. "Year 3"
-        topic: e.g. "Writing - Myths & Legends"
-        objective: e.g. "Plan, draft, and write narratives..."
-        age_range: e.g. "7-8"
-        theme_name: e.g. "Space Explorer"
-        theme_icon: e.g. "rocket emoji"
-        level: One of "developing", "expected", or "greater_depth"
-
-    Returns:
-        The fully formatted prompt string ready to send to Claude.
-    """
+    """Build a complete sentence builder worksheet prompt with all placeholders filled."""
     return SENTENCE_BUILDER_PROMPT.format(
         year_group=year_group,
         topic=topic,
@@ -536,6 +586,8 @@ def get_sentence_builder_prompt(
         theme_name=theme_name,
         theme_icon=theme_icon,
         level=level,
+        subject=subject,
+        subject_context=SUBJECT_CONTEXT.get(subject, ""),
     )
 
 
@@ -546,10 +598,13 @@ def get_sentence_builder_prompt(
 READING_COMPREHENSION_PROMPT = """You are an expert UK primary school teacher creating a reading comprehension worksheet for {year_group} pupils (aged {age_range}).
 
 CURRICULUM CONTEXT:
-- Subject/Topic: {topic}
+- Subject: {subject}
+- Topic: {topic}
 - Learning Objective: {objective}
 - Theme: {theme_name} {theme_icon}
 - Differentiation Level: {level}
+
+{subject_context}
 
 YOUR TASK:
 Create a reading comprehension worksheet themed around "{theme_name}" that includes a reading passage followed by comprehension questions. The passage and questions should help pupils work towards the learning objective and be appropriately differentiated.
@@ -652,6 +707,7 @@ def get_reading_comprehension_prompt(
     theme_name: str,
     theme_icon: str,
     level: str,
+    subject: str = "English",
 ) -> str:
     """Build a complete reading comprehension prompt with all placeholders filled."""
     return READING_COMPREHENSION_PROMPT.format(
@@ -662,6 +718,343 @@ def get_reading_comprehension_prompt(
         theme_name=theme_name,
         theme_icon=theme_icon,
         level=level,
+        subject=subject,
+        subject_context=SUBJECT_CONTEXT.get(subject, ""),
+    )
+
+
+# =============================================================================
+# 6. PROBLEM_SOLVING PROMPT - Maths word problems (Maths-specific)
+# =============================================================================
+
+PROBLEM_SOLVING_PROMPT = """You are an expert UK primary school teacher creating a maths problem solving worksheet for {year_group} pupils (aged {age_range}).
+
+CURRICULUM CONTEXT:
+- Subject: Maths
+- Topic: {topic}
+- Learning Objective: {objective}
+- Theme: {theme_name} {theme_icon}
+- Differentiation Level: {level}
+
+{subject_context}
+
+YOUR TASK:
+Create a problem solving worksheet themed around "{theme_name}" that presents a real-world scenario followed by structured mathematical questions. The scenario should provide data and context that pupils use to answer questions of increasing difficulty.
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Create a simple scenario with straightforward data (a table or list of 3-4 items with simple numbers)
+- Include 4-5 questions, mostly "calculate" type with single-step operations
+- Use small, manageable numbers appropriate for pupils who need extra support
+- Each question should have a "word_bank" field with 1-2 hint words
+- Questions should require 1-2 answer lines
+- Marks should be 1 per question
+
+If the level is "expected":
+- Create a scenario with moderate data (a table or list of 4-6 items)
+- Include 6-8 questions mixing "calculate", "explain", and "estimate" types
+- Use age-appropriate numbers matching {year_group} expectations
+- Do NOT include "word_bank" for any question
+- Questions should require 2-3 answer lines
+- Marks should be 1-2 per question
+
+If the level is "greater_depth":
+- Create a richer scenario with more complex data (a table with 5-8 items, multiple data points)
+- Include 8-10 questions including "calculate", "explain", "estimate", and "prove" types
+- Use challenging numbers and multi-step problems
+- Do NOT include "word_bank" for any question
+- Questions should require 2-4 answer lines
+- Marks should be 1-3 per question
+
+QUESTION TYPES - Use these exact values:
+- "calculate" - perform a calculation and show working
+- "explain" - explain reasoning or method
+- "estimate" - make a reasonable estimate
+- "prove" - prove or show that a statement is true/false
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{{
+  "title": "<A creative, engaging title for the worksheet related to the theme>",
+  "scenario": {{
+    "title": "<Title of the scenario, e.g. The Space Station Shop>",
+    "text": "<Description of the scenario. Use \\n\\n for paragraph breaks.>",
+    "data": [
+      {{"label": "<item name>", "value": "<number or amount, e.g. £2.50 or 24 kg>"}}
+    ]
+  }},
+  "questions": [
+    {{
+      "number": 1,
+      "question": "<the maths question>",
+      "question_type": "<one of: calculate, explain, estimate, prove>",
+      "marks": 1,
+      "lines": 2,
+      "answer": "<model answer with working shown>",
+      "word_bank": ["<hint word>"]
+    }}
+  ],
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}}
+
+CRITICAL RULES FOR THE JSON:
+1. The "scenario" object must have "title" (string), "text" (string), and "data" (array of label/value objects).
+2. For "developing" level: every question MUST have a "word_bank" field (array of 1-2 hint strings).
+3. For "expected" and "greater_depth" levels: do NOT include "word_bank" in questions.
+4. The "answer" field should contain a complete model answer showing working out.
+5. Questions should progress from easier to harder.
+6. success_criteria should have 3-5 pupil-friendly statements.
+7. Make the scenario genuinely engaging and themed around {theme_name} {theme_icon}.
+8. Ensure all questions can be answered using the data provided in the scenario.
+9. Use UK currency (£ and p) and metric units where appropriate.
+
+Generate the JSON now:"""
+
+
+def get_problem_solving_prompt(
+    year_group: str,
+    topic: str,
+    objective: str,
+    age_range: str,
+    theme_name: str,
+    theme_icon: str,
+    level: str,
+    subject: str = "Maths",
+) -> str:
+    """Build a complete problem solving worksheet prompt with all placeholders filled."""
+    return PROBLEM_SOLVING_PROMPT.format(
+        year_group=year_group,
+        topic=topic,
+        objective=objective,
+        age_range=age_range,
+        theme_name=theme_name,
+        theme_icon=theme_icon,
+        level=level,
+        subject_context=SUBJECT_CONTEXT.get("Maths", ""),
+    )
+
+
+# =============================================================================
+# 7. CALCULATION_PRACTICE PROMPT - Maths calculation exercises (Maths-specific)
+# =============================================================================
+
+CALCULATION_PRACTICE_PROMPT = """You are an expert UK primary school teacher creating a calculation practice worksheet for {year_group} pupils (aged {age_range}).
+
+CURRICULUM CONTEXT:
+- Subject: Maths
+- Topic: {topic}
+- Learning Objective: {objective}
+- Theme: {theme_name} {theme_icon}
+- Differentiation Level: {level}
+
+{subject_context}
+
+YOUR TASK:
+Create a calculation practice worksheet themed around "{theme_name}" with sections of progressively harder calculations. Each section should have clear instructions and space for working out.
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Create 2-3 sections with 4-5 calculations each
+- Use single-step calculations with small, manageable numbers
+- Include visual hints or partially completed examples where appropriate
+- Do NOT include a challenge section (set "challenge" to null)
+
+If the level is "expected":
+- Create 3-4 sections with 5-6 calculations each
+- Use age-appropriate numbers matching {year_group} expectations
+- Progress from simpler to more complex within each section
+- Include a challenge section with 1-2 extension questions
+
+If the level is "greater_depth":
+- Create 4-5 sections with 6-8 calculations each
+- Use challenging numbers and multi-step calculations
+- Include reasoning questions (e.g. "What is the missing number?")
+- Include a challenge section with 2-3 open-ended extension problems
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{{
+  "title": "<A creative, engaging title for the worksheet related to the theme>",
+  "sections": [
+    {{
+      "title": "<Section title, e.g. Warm-Up Calculations>",
+      "instructions": "<Clear instructions, e.g. Calculate each answer. Show your working out.>",
+      "calculations": [
+        {{
+          "question": "<The calculation, e.g. 345 + 278 = ___>",
+          "answer": "<The correct answer, e.g. 623>",
+          "working_hint": "<Optional hint for developing level, e.g. Use column addition. null for others>"
+        }}
+      ]
+    }}
+  ],
+  "challenge": {{
+    "title": "<Challenge section title, e.g. Brain Buster!>",
+    "instructions": "<Instructions for the challenge>",
+    "lines": 3
+  }},
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}}
+
+CRITICAL RULES FOR THE JSON:
+1. Each section has "title" (string), "instructions" (string), and "calculations" (array).
+2. Each calculation has "question" (string), "answer" (string), and "working_hint" (string or null).
+3. For "developing" level: include "working_hint" for each calculation. Set "challenge" to null.
+4. For "expected" and "greater_depth" levels: set "working_hint" to null. Include "challenge" object.
+5. The "challenge" object has "title" (string), "instructions" (string), and "lines" (int).
+6. Use the correct mathematical notation: + - x or \\u00d7 for multiplication, \\u00f7 for division.
+7. Ensure all calculations are correctly solvable and age-appropriate.
+8. success_criteria should have 3-5 pupil-friendly statements.
+9. Theme section titles around {theme_name} {theme_icon} to make it engaging.
+
+Generate the JSON now:"""
+
+
+def get_calculation_practice_prompt(
+    year_group: str,
+    topic: str,
+    objective: str,
+    age_range: str,
+    theme_name: str,
+    theme_icon: str,
+    level: str,
+    subject: str = "Maths",
+) -> str:
+    """Build a complete calculation practice worksheet prompt with all placeholders filled."""
+    return CALCULATION_PRACTICE_PROMPT.format(
+        year_group=year_group,
+        topic=topic,
+        objective=objective,
+        age_range=age_range,
+        theme_name=theme_name,
+        theme_icon=theme_icon,
+        level=level,
+        subject_context=SUBJECT_CONTEXT.get("Maths", ""),
+    )
+
+
+# =============================================================================
+# 8. INVESTIGATION PROMPT - Science investigation planner (Science-specific)
+# =============================================================================
+
+INVESTIGATION_PROMPT = """You are an expert UK primary school teacher creating a science investigation planning worksheet for {year_group} pupils (aged {age_range}).
+
+CURRICULUM CONTEXT:
+- Subject: Science
+- Topic: {topic}
+- Learning Objective: {objective}
+- Theme: {theme_name} {theme_icon}
+- Differentiation Level: {level}
+
+{subject_context}
+
+YOUR TASK:
+Create a science investigation planner worksheet themed around "{theme_name}" that guides pupils through planning and recording a scientific investigation. The investigation should be linked to the curriculum topic and learning objective.
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Provide the investigation question, prediction, and variable identification pre-filled or with multiple choice
+- Include 3-4 simple method steps
+- Provide a results table with 2-3 columns and 3-4 rows
+- Include 2-3 simple conclusion prompts with sentence starters
+- Use simple, accessible language
+
+If the level is "expected":
+- Provide the investigation question but let pupils write their own prediction
+- Include guidance for identifying variables (what to change, measure, keep the same)
+- Include 4-6 method steps
+- Provide a results table with 3-4 columns and 4-5 rows
+- Include 3-4 conclusion prompts
+- Use age-appropriate scientific language
+
+If the level is "greater_depth":
+- Provide context but let pupils formulate their own question and prediction
+- Expect pupils to identify variables independently (with prompts)
+- Include 5-7 method steps with emphasis on fair testing
+- Provide a results table with 4-5 columns and 5-6 rows
+- Include 4-5 conclusion prompts requiring analysis and evaluation
+- Use ambitious scientific vocabulary
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{{
+  "title": "<A creative, engaging title for the investigation worksheet>",
+  "investigation": {{
+    "question": "<The investigation question, e.g. How does the height affect how far a ball rolls?>",
+    "prediction": "<A sentence starter for prediction, e.g. I predict that... OR a full prediction for developing>",
+    "prediction_choices": ["<choice 1>", "<choice 2>", "<choice 3>"],
+    "variables": {{
+      "change": "<What we will change (independent variable)>",
+      "measure": "<What we will measure (dependent variable)>",
+      "keep_same": ["<control variable 1>", "<control variable 2>", "<control variable 3>"]
+    }}
+  }},
+  "equipment": ["<item 1>", "<item 2>", "<item 3>"],
+  "method": ["<Step 1>", "<Step 2>", "<Step 3>"],
+  "results_table": {{
+    "columns": ["<Column 1 heading>", "<Column 2 heading>", "<Column 3 heading>"],
+    "rows": 4,
+    "units": ["<unit for col 1 or empty>", "<unit for col 2>", "<unit for col 3>"]
+  }},
+  "conclusion_prompts": [
+    "<Prompt or sentence starter, e.g. I found out that...>",
+    "<Prompt, e.g. My prediction was correct/incorrect because...>",
+    "<Prompt, e.g. If I did this investigation again, I would...>"
+  ],
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}}
+
+CRITICAL RULES FOR THE JSON:
+1. For "developing" level: include "prediction_choices" (array of 3 strings) for multiple choice. Pre-fill "prediction" with a complete prediction.
+2. For "expected" and "greater_depth" levels: set "prediction_choices" to null. "prediction" should be a sentence starter (e.g. "I predict that...").
+3. The "variables" object must have "change" (string), "measure" (string), and "keep_same" (array of strings).
+4. "equipment" is an array of strings listing what pupils need.
+5. "method" is an array of strings, each being a numbered step.
+6. "results_table" has "columns" (array of column heading strings), "rows" (integer - number of data rows), and "units" (array of unit strings matching columns).
+7. "conclusion_prompts" is an array of sentence starters or guided questions.
+8. success_criteria should have 3-5 pupil-friendly statements.
+9. Make the investigation practical, safe, and achievable in a classroom setting.
+10. Theme the investigation around {theme_name} {theme_icon} where possible.
+11. Ensure the investigation genuinely tests the curriculum learning objective.
+
+Generate the JSON now:"""
+
+
+def get_investigation_prompt(
+    year_group: str,
+    topic: str,
+    objective: str,
+    age_range: str,
+    theme_name: str,
+    theme_icon: str,
+    level: str,
+    subject: str = "Science",
+) -> str:
+    """Build a complete investigation planner prompt with all placeholders filled."""
+    return INVESTIGATION_PROMPT.format(
+        year_group=year_group,
+        topic=topic,
+        objective=objective,
+        age_range=age_range,
+        theme_name=theme_name,
+        theme_icon=theme_icon,
+        level=level,
+        subject_context=SUBJECT_CONTEXT.get("Science", ""),
     )
 
 
@@ -675,6 +1068,9 @@ _PROMPT_REGISTRY: Dict[str, Callable[..., str]] = {
     "matching": get_matching_prompt,
     "sentence_builder": get_sentence_builder_prompt,
     "reading_comprehension": get_reading_comprehension_prompt,
+    "problem_solving": get_problem_solving_prompt,
+    "calculation_practice": get_calculation_practice_prompt,
+    "investigation": get_investigation_prompt,
 }
 
 # Also accept alternative naming conventions
@@ -697,6 +1093,15 @@ _PROMPT_ALIASES: Dict[str, str] = {
     "reading_comp": "reading_comprehension",
     "comprehension": "reading_comprehension",
     "reading": "reading_comprehension",
+    "problem_solving": "problem_solving",
+    "word_problems": "problem_solving",
+    "problems": "problem_solving",
+    "calculation_practice": "calculation_practice",
+    "calculations": "calculation_practice",
+    "calc_practice": "calculation_practice",
+    "investigation": "investigation",
+    "investigation_planner": "investigation",
+    "science_investigation": "investigation",
 }
 
 
@@ -708,11 +1113,7 @@ def get_prompt(worksheet_type: str, **kwargs) -> str:
     prompt-building function based on the worksheet type name.
 
     Args:
-        worksheet_type: The type of worksheet to generate. Accepts:
-            - "cloze", "cloze_passage", "fill_in_the_blank", "fill_in_the_blanks"
-            - "word_bank", "wordbank", "vocabulary", "vocab"
-            - "matching", "match", "connecting"
-            - "sentence_builder", "sentence_building", "sentences"
+        worksheet_type: The type of worksheet to generate.
         **kwargs: Keyword arguments passed to the prompt function:
             - year_group (str): e.g. "Year 3"
             - topic (str): e.g. "Writing - Myths & Legends"
@@ -721,6 +1122,7 @@ def get_prompt(worksheet_type: str, **kwargs) -> str:
             - theme_name (str): e.g. "Space Explorer"
             - theme_icon (str): e.g. "rocket emoji"
             - level (str): One of "developing", "expected", or "greater_depth"
+            - subject (str): e.g. "English", "Maths", "Science" (default: "English")
 
     Returns:
         The fully formatted prompt string ready to send to Claude.

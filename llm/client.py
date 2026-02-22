@@ -118,6 +118,7 @@ def generate_worksheet_content(
     max_tokens: int = DEFAULT_MAX_TOKENS,
     temperature: float = 0.7,
     timeout: Optional[float] = None,
+    subject: str = "English",
 ) -> dict:
     """
     Send a prompt to Claude and return parsed JSON worksheet content.
@@ -137,6 +138,8 @@ def generate_worksheet_content(
             consistent worksheet content.
         timeout: Optional request timeout in seconds. If None, uses the
             client default (60s).
+        subject: The curriculum subject (e.g. "English", "Maths", "Science").
+            Used to tailor the system prompt for better subject-specific output.
 
     Returns:
         A dictionary containing the parsed worksheet content matching the
@@ -158,7 +161,7 @@ def generate_worksheet_content(
             timeout=timeout,
         )
 
-    logger.info("Sending worksheet generation request to Claude (model=%s)", model)
+    logger.info("Sending worksheet generation request to Claude (model=%s, subject=%s)", model, subject)
 
     try:
         message = client.messages.create(
@@ -172,7 +175,8 @@ def generate_worksheet_content(
                 }
             ],
             system=(
-                "You are an expert UK primary school teacher and curriculum designer. "
+                f"You are an expert UK primary school teacher and curriculum designer "
+                f"specialising in {subject}. "
                 "You create engaging, age-appropriate educational content aligned to the "
                 "UK National Curriculum. You ALWAYS respond with valid JSON only - no "
                 "additional text, explanations, or markdown formatting outside the JSON. "

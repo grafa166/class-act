@@ -1,14 +1,14 @@
 """
 UK National Curriculum Lesson Planner & Worksheet Generator
 A Streamlit app that generates themed, differentiated, dual-coded worksheets
-for Primary School English (Year 1-6) using Claude AI.
+for Primary School subjects (Year 1-6) using Claude AI.
 """
 
 import io
 import zipfile
 import streamlit as st
 
-from curriculum.english import ENGLISH_CURRICULUM
+from curriculum import SUBJECT_REGISTRY, WORKSHEET_TYPE_DISPLAY, WORKSHEET_TYPE_KEY_MAP
 from generators.styles import THEMES, DIFF_LEVELS, YEAR_AGES
 from llm.client import generate_worksheet_content
 from llm.prompts import get_prompt
@@ -17,6 +17,9 @@ from generators.word_bank import generate_word_bank_worksheet
 from generators.matching import generate_matching_worksheet
 from generators.sentence_builder import generate_sentence_builder_worksheet
 from generators.reading_comprehension import generate_reading_comprehension_worksheet
+from generators.problem_solving import generate_problem_solving_worksheet
+from generators.calculation_practice import generate_calculation_practice_worksheet
+from generators.investigation import generate_investigation_worksheet
 
 
 # ─── Page Configuration ────────────────────────────────────────────────────────
@@ -477,33 +480,35 @@ with st.sidebar:
     st.markdown("## \U0001F3EB Lesson Planner")
     st.markdown("---")
 
-    # Year Group
-    year_groups = list(ENGLISH_CURRICULUM.keys())
+    # Subject
+    subject = st.selectbox(
+        "\U0001F4D6 Subject",
+        list(SUBJECT_REGISTRY.keys()),
+        help="Select the curriculum subject",
+    )
+    subject_config = SUBJECT_REGISTRY[subject]
+    curriculum_data = subject_config["curriculum"]
+
+    # Year Group (filtered by subject)
+    year_groups = subject_config["years"]
+    default_year_idx = min(2, len(year_groups) - 1)
     year_group = st.selectbox(
         "\U0001F393 Year Group",
         year_groups,
-        index=2,  # Default to Year 3
+        index=default_year_idx,
         help="Select the year group for this worksheet",
     )
 
-    # Subject (English only for now)
-    st.selectbox(
-        "\U0001F4D6 Subject",
-        ["English"],
-        disabled=True,
-        help="More subjects coming soon!",
-    )
-
     # Strand
-    strands = list(ENGLISH_CURRICULUM[year_group].keys())
+    strands = list(curriculum_data[year_group].keys())
     strand = st.selectbox(
         "\U0001F4CB Strand",
         strands,
-        help="Select the English strand",
+        help=f"Select the {subject} strand",
     )
 
     # Topic
-    topics = ENGLISH_CURRICULUM[year_group][strand]["topics"]
+    topics = curriculum_data[year_group][strand]["topics"]
     topic = st.selectbox(
         "\U0001F4CC Topic",
         topics,
@@ -511,7 +516,7 @@ with st.sidebar:
     )
 
     # Get objectives for display
-    objectives = ENGLISH_CURRICULUM[year_group][strand]["objectives"]
+    objectives = curriculum_data[year_group][strand]["objectives"]
     objective_text = objectives[0] if objectives else ""
 
     # Custom Topic Override
@@ -533,36 +538,20 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Worksheet Type
-    worksheet_types = {
-        "Cloze Passage": {
-            "icon": "\u270D\uFE0F",
-            "desc": "Fill-in-the-blank passages with scaffolded support",
-        },
-        "Word Bank Activity": {
-            "icon": "\U0001F4DA",
-            "desc": "Vocabulary sheets with colour-coded word types",
-        },
-        "Matching Activity": {
-            "icon": "\U0001F517",
-            "desc": "Connect terms to definitions with visual scaffolding",
-        },
-        "Sentence Builder": {
-            "icon": "\U0001F9E9",
-            "desc": "Construct sentences from word/phrase cards",
-        },
-        "Reading Comprehension": {
-            "icon": "\U0001F4D6",
-            "desc": "Passage with tiered comprehension questions",
-        },
-    }
+    # Worksheet Type (filtered by subject)
+    available_ws_keys = subject_config["worksheet_types"]
+    available_ws_display = [
+        WORKSHEET_TYPE_DISPLAY[k] for k in available_ws_keys
+        if k in WORKSHEET_TYPE_DISPLAY
+    ]
 
-    worksheet_type = st.selectbox(
+    worksheet_type_display = st.selectbox(
         "\U0001F4DD Worksheet Type",
-        list(worksheet_types.keys()),
-        format_func=lambda x: f"{worksheet_types[x]['icon']} {x}",
+        available_ws_display,
     )
-    st.caption(worksheet_types[worksheet_type]["desc"])
+    # Map display name back to key
+    worksheet_type_key = WORKSHEET_TYPE_KEY_MAP.get(worksheet_type_display, "cloze")
+    worksheet_type = worksheet_type_display  # For display purposes
 
     # Theme
     theme_options = {k: f"{v['icon']} {v['name']}" for k, v in THEMES.items()}
@@ -650,7 +639,7 @@ with col1:
     st.markdown(
         '<div class="stat-card">'
         '<div class="stat-card-label">Year Group</div>'
-        f'<div class="stat-card-value">{year_group} &middot; English</div>'
+        f'<div class="stat-card-value">{year_group} &middot; {subject_config["icon"]} {subject}</div>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -666,7 +655,7 @@ with col3:
     st.markdown(
         '<div class="stat-card">'
         '<div class="stat-card-label">Worksheet</div>'
-        f'<div class="stat-card-value">{worksheet_types[worksheet_type]["icon"]} {worksheet_type} '
+        f'<div class="stat-card-value">{worksheet_type} '
         f'<span class="badge badge-blue">{theme["icon"]} {theme["name"]}</span></div>'
         '</div>',
         unsafe_allow_html=True,
@@ -704,20 +693,15 @@ with st.expander(f"{theme['icon']} Theme Preview: {theme['name']}", expanded=Fal
 
 # ─── Maps ─────────────────────────────────────────────────────────────────────
 
-WORKSHEET_TYPE_MAP = {
-    "Cloze Passage": "cloze",
-    "Word Bank Activity": "word_bank",
-    "Matching Activity": "matching",
-    "Sentence Builder": "sentence_builder",
-    "Reading Comprehension": "reading_comprehension",
-}
-
 GENERATOR_MAP = {
     "cloze": generate_cloze_worksheet,
     "word_bank": generate_word_bank_worksheet,
     "matching": generate_matching_worksheet,
     "sentence_builder": generate_sentence_builder_worksheet,
     "reading_comprehension": generate_reading_comprehension_worksheet,
+    "problem_solving": generate_problem_solving_worksheet,
+    "calculation_practice": generate_calculation_practice_worksheet,
+    "investigation": generate_investigation_worksheet,
 }
 
 
@@ -812,6 +796,49 @@ def render_content_preview(content, ws_type):
                 f"{q.get('number', '?')}. [{q.get('question_type', '')}] "
                 f"{q.get('question', '')} ({marks} mark{'s' if marks > 1 else ''})"
             )
+
+    elif ws_type == 'problem_solving':
+        scenario = content.get('scenario', {})
+        st.markdown(f"**Scenario:** {scenario.get('title', '')}")
+        st.markdown(scenario.get('text', '')[:300] + '...' if len(scenario.get('text', '')) > 300 else scenario.get('text', ''))
+        if scenario.get('data'):
+            st.markdown("**Data:**")
+            for item in scenario['data']:
+                st.markdown(f"- {item.get('label', '')}: {item.get('value', '')}")
+        st.markdown("**Questions:**")
+        for q in content.get('questions', []):
+            marks = q.get('marks', 1)
+            st.markdown(
+                f"{q.get('number', '?')}. [{q.get('question_type', '')}] "
+                f"{q.get('question', '')} ({marks} mark{'s' if marks > 1 else ''})"
+            )
+
+    elif ws_type == 'calculation_practice':
+        for section in content.get('sections', []):
+            st.markdown(f"**{section.get('title', '')}**")
+            st.caption(section.get('instructions', ''))
+            for calc in section.get('calculations', [])[:3]:
+                st.markdown(f"- {calc.get('question', '')} = **{calc.get('answer', '')}**")
+            remaining = len(section.get('calculations', [])) - 3
+            if remaining > 0:
+                st.caption(f"... and {remaining} more calculations")
+        challenge = content.get('challenge')
+        if challenge:
+            st.markdown(f"**Challenge:** {challenge.get('title', '')} \u2014 {challenge.get('instructions', '')}")
+
+    elif ws_type == 'investigation':
+        inv = content.get('investigation', {})
+        st.markdown(f"**Question:** {inv.get('question', '')}")
+        st.markdown(f"**Prediction:** {inv.get('prediction', '')}")
+        variables = inv.get('variables', {})
+        if variables:
+            st.markdown(f"- **Change:** {variables.get('change', '')}")
+            st.markdown(f"- **Measure:** {variables.get('measure', '')}")
+            st.markdown(f"- **Keep same:** {', '.join(variables.get('keep_same', []))}")
+        if content.get('method'):
+            st.markdown("**Method:**")
+            for i, step in enumerate(content['method'], 1):
+                st.markdown(f"{i}. {step}")
 
     # Success criteria (common to all types)
     criteria = content.get('success_criteria', [])
@@ -978,7 +1005,7 @@ if generate_btn or _regenerating:
         levels_to_generate = params['levels']
     else:
         # Fresh generation — build params from sidebar
-        ws_type_key = WORKSHEET_TYPE_MAP[worksheet_type]
+        ws_type_key = worksheet_type_key
         age_range = YEAR_AGES[year_group]
 
         if generate_all:
@@ -991,6 +1018,7 @@ if generate_btn or _regenerating:
         st.session_state.generation_params = {
             'ws_type_key': ws_type_key,
             'year_group': year_group,
+            'subject': subject,
             'effective_topic': effective_topic,
             'effective_objective': effective_objective,
             'topic_for_filename': topic_for_filename,
@@ -1034,11 +1062,17 @@ if generate_btn or _regenerating:
                 theme_name=params['theme_name'],
                 theme_icon=params['theme_icon'],
                 level=level,
+                subject=params.get('subject', 'English'),
             )
 
-            # Reading comprehension needs more tokens for passage + questions + answers
-            max_tok = 6144 if params['ws_type_key'] == 'reading_comprehension' else 4096
-            content = generate_worksheet_content(prompt, max_tokens=max_tok)
+            # Longer prompts need more tokens
+            max_tok = 6144 if params['ws_type_key'] in (
+                'reading_comprehension', 'problem_solving', 'investigation'
+            ) else 4096
+            content = generate_worksheet_content(
+                prompt, max_tokens=max_tok,
+                subject=params.get('subject', 'English'),
+            )
 
             if content:
                 st.session_state.generated_content[level] = content
@@ -1162,12 +1196,17 @@ else:
     st.markdown(
         '<div class="section-card"><h4>\u2728 Dual Coding System</h4>'
         '<p style="color: #6B7280; font-size: 0.9rem; margin: 0;">'
-        'Every word type is identified by <b>both</b> a colour <b>and</b> a symbol</p></div>',
+        'Every word type is identified by <b>both</b> a colour <b>and</b> a symbol &mdash; '
+        'adapted for each subject</p></div>',
         unsafe_allow_html=True,
     )
 
     from generators.styles import WORD_TYPES
-    wt_items = list(WORD_TYPES.items())
+    # Show word types for the currently selected subject
+    current_wt_keys = subject_config.get("word_types", [])
+    wt_items = [(k, WORD_TYPES[k]) for k in current_wt_keys if k in WORD_TYPES]
+    if not wt_items:
+        wt_items = list(WORD_TYPES.items())[:6]
     for row_start in range(0, len(wt_items), 6):
         row_items = wt_items[row_start:row_start + 6]
         cols = st.columns(len(row_items))
@@ -1185,7 +1224,8 @@ else:
 
 st.markdown(
     '<div class="app-footer">'
-    'UK National Curriculum Worksheet Generator &middot; English (Year 1\u20136) &middot; '
+    'UK National Curriculum Worksheet Generator &middot; '
+    'English, Maths, Science, History, Geography, Computing, Languages (Year 1\u20136) &middot; '
     'Powered by Claude AI</div>',
     unsafe_allow_html=True,
 )

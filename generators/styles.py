@@ -101,6 +101,152 @@ WORD_TYPES = {
         'symbol': '\u2702',   # ✂
         'label': 'Punctuation',
     },
+    # ─── Maths Word Types ────────────────────────────────────────────────────
+    'operation': {
+        'bg': 'E3F2FD',
+        'border': '1565C0',
+        'text': RGBColor(0x15, 0x65, 0xC0),
+        'symbol': '\u2795',   # ➕
+        'label': 'Operation',
+    },
+    'shape': {
+        'bg': 'F3E5F5',
+        'border': '7B1FA2',
+        'text': RGBColor(0x6A, 0x1B, 0x9A),
+        'symbol': '\u25B3',   # △
+        'label': 'Shape',
+    },
+    'measure': {
+        'bg': 'FFF9C4',
+        'border': 'F57F17',
+        'text': RGBColor(0xE6, 0x5C, 0x00),
+        'symbol': '\U0001F4CF',  # 📏
+        'label': 'Measurement',
+    },
+    'number': {
+        'bg': 'E8F5E9',
+        'border': '388E3C',
+        'text': RGBColor(0x2E, 0x7D, 0x32),
+        'symbol': '#',
+        'label': 'Number',
+    },
+    'vocabulary': {
+        'bg': 'FCE4EC',
+        'border': 'C62828',
+        'text': RGBColor(0xC6, 0x28, 0x28),
+        'symbol': '\u2B50',   # ⭐
+        'label': 'Key Word',
+    },
+    # ─── Science Word Types ──────────────────────────────────────────────────
+    'process': {
+        'bg': 'E0F7FA',
+        'border': '00838F',
+        'text': RGBColor(0x00, 0x69, 0x78),
+        'symbol': '\u2699',   # ⚙
+        'label': 'Process',
+    },
+    'equipment': {
+        'bg': 'FFF3E0',
+        'border': 'E65100',
+        'text': RGBColor(0xBF, 0x36, 0x0C),
+        'symbol': '\U0001F52C',  # 🔬
+        'label': 'Equipment',
+    },
+    'organism': {
+        'bg': 'E8F5E9',
+        'border': '2E7D32',
+        'text': RGBColor(0x1B, 0x5E, 0x20),
+        'symbol': '\U0001F331',  # 🌱
+        'label': 'Living Thing',
+    },
+    'material': {
+        'bg': 'ECEFF1',
+        'border': '546E7A',
+        'text': RGBColor(0x45, 0x5A, 0x64),
+        'symbol': '\U0001F9F1',  # 🧱
+        'label': 'Material',
+    },
+    # ─── History Word Types ──────────────────────────────────────────────────
+    'event': {
+        'bg': 'FFF8E1',
+        'border': 'FF8F00',
+        'text': RGBColor(0xE6, 0x6A, 0x00),
+        'symbol': '\U0001F4C5',  # 📅
+        'label': 'Event',
+    },
+    'person': {
+        'bg': 'E3F2FD',
+        'border': '1565C0',
+        'text': RGBColor(0x15, 0x65, 0xC0),
+        'symbol': '\U0001F464',  # 👤
+        'label': 'Person',
+    },
+    'place': {
+        'bg': 'F1F8E9',
+        'border': '558B2F',
+        'text': RGBColor(0x33, 0x69, 0x1E),
+        'symbol': '\U0001F4CD',  # 📍
+        'label': 'Place',
+    },
+    'date': {
+        'bg': 'FFF9C4',
+        'border': 'F57F17',
+        'text': RGBColor(0xE6, 0x5C, 0x00),
+        'symbol': '\u23F3',   # ⏳
+        'label': 'Date/Period',
+    },
+    # ─── Geography Word Types ────────────────────────────────────────────────
+    'feature': {
+        'bg': 'E0F2F1',
+        'border': '00695C',
+        'text': RGBColor(0x00, 0x4D, 0x40),
+        'symbol': '\u26F0',   # ⛰
+        'label': 'Feature',
+    },
+    'climate': {
+        'bg': 'E3F2FD',
+        'border': '0277BD',
+        'text': RGBColor(0x01, 0x57, 0x9B),
+        'symbol': '\U0001F321',  # 🌡
+        'label': 'Climate/Weather',
+    },
+    # ─── Computing Word Types ────────────────────────────────────────────────
+    'algorithm': {
+        'bg': 'E8EAF6',
+        'border': '283593',
+        'text': RGBColor(0x1A, 0x23, 0x7E),
+        'symbol': '\u2699',   # ⚙
+        'label': 'Algorithm',
+    },
+    'data': {
+        'bg': 'E0F7FA',
+        'border': '00838F',
+        'text': RGBColor(0x00, 0x69, 0x78),
+        'symbol': '\U0001F4CA',  # 📊
+        'label': 'Data',
+    },
+    'hardware': {
+        'bg': 'ECEFF1',
+        'border': '546E7A',
+        'text': RGBColor(0x45, 0x5A, 0x64),
+        'symbol': '\U0001F5A5',  # 🖥
+        'label': 'Hardware',
+    },
+    'software': {
+        'bg': 'F3E5F5',
+        'border': '7B1FA2',
+        'text': RGBColor(0x6A, 0x1B, 0x9A),
+        'symbol': '\U0001F4BB',  # 💻
+        'label': 'Software',
+    },
+    # ─── Languages Word Types ────────────────────────────────────────────────
+    'phrase': {
+        'bg': 'FFF8E1',
+        'border': 'FF8F00',
+        'text': RGBColor(0xE6, 0x6A, 0x00),
+        'symbol': '\U0001F4AC',  # 💬
+        'label': 'Phrase',
+    },
 }
 
 # ─── Fun Visual Themes ─────────────────────────────────────────────────────────
