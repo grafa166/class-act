@@ -36,10 +36,14 @@ def set_run_font(run, font_name=FONT_NAME, size=Pt(14), bold=False, italic=False
 
 def set_cell_shading(cell, colour_hex):
     """Set background colour of a table cell."""
+    tcPr = cell._tc.get_or_add_tcPr()
     shading = parse_xml(
         f'<w:shd {nsdecls("w")} w:fill="{colour_hex}" w:val="clear"/>'
     )
-    cell._tc.get_or_add_tcPr().append(shading)
+    existing = tcPr.findall(f'{{{tcPr.nsmap["w"]}}}shd')
+    for e in existing:
+        tcPr.remove(e)
+    tcPr.append(shading)
 
 
 def set_cell_borders(cell, colour_hex, sz=8):
@@ -53,6 +57,9 @@ def set_cell_borders(cell, colour_hex, sz=8):
         f'  <w:right w:val="single" w:sz="{sz}" w:space="0" w:color="{colour_hex}"/>'
         f'</w:tcBorders>'
     )
+    existing = tcPr.findall(f'{{{tcPr.nsmap["w"]}}}tcBorders')
+    for e in existing:
+        tcPr.remove(e)
     tcPr.append(borders)
 
 
@@ -67,6 +74,9 @@ def set_cell_padding(cell, top=0, bottom=0, left=0, right=0):
         f'  <w:right w:w="{right}" w:type="dxa"/>'
         f'</w:tcMar>'
     )
+    existing = tcPr.findall(f'{{{tcPr.nsmap["w"]}}}tcMar')
+    for e in existing:
+        tcPr.remove(e)
     tcPr.append(margins)
 
 
