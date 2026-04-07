@@ -12,6 +12,7 @@ from curriculum.history import HISTORY_CURRICULUM
 from curriculum.geography import GEOGRAPHY_CURRICULUM
 from curriculum.computing import COMPUTING_CURRICULUM
 from curriculum.languages import LANGUAGES_CURRICULUM
+from curriculum.re import RE_CURRICULUM
 
 
 SUBJECT_REGISTRY = {
@@ -29,8 +30,8 @@ SUBJECT_REGISTRY = {
         "curriculum": MATHS_CURRICULUM,
         "years": ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"],
         "worksheet_types": [
-            "cloze", "word_bank", "matching",
-            "reading_comprehension", "problem_solving", "calculation_practice",
+            "calculation_practice", "fraction_practice",
+            "problem_solving", "matching",
         ],
         "word_types": ["operation", "shape", "measure", "number", "vocabulary", "open"],
         "icon": "\U0001F4D0",  # 📐
@@ -85,6 +86,16 @@ SUBJECT_REGISTRY = {
         "word_types": ["noun", "verb", "adjective", "phrase", "vocabulary", "open"],
         "icon": "\U0001F1EB\U0001F1F7",  # 🇫🇷
     },
+    "RE": {
+        "curriculum": RE_CURRICULUM,
+        "years": ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"],
+        "worksheet_types": [
+            "cloze", "word_bank", "matching",
+            "sentence_builder", "reading_comprehension",
+        ],
+        "word_types": ["scripture", "sacrament", "saint", "prayer", "vocabulary", "open"],
+        "icon": "\u271D",  # ✝ (Latin Cross)
+    },
 }
 
 
@@ -98,6 +109,7 @@ WORKSHEET_TYPE_DISPLAY = {
     "problem_solving": "\U0001F9E9 Problem Solving (Word Problems)",
     "calculation_practice": "\U0001F522 Calculation Practice",
     "investigation": "\U0001F52C Investigation Planner",
+    "fraction_practice": "\U0001F4D0 Fraction Practice",
 }
 
 # Map display names back to keys

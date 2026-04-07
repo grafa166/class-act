@@ -247,6 +247,35 @@ WORD_TYPES = {
         'symbol': '\U0001F4AC',  # 💬
         'label': 'Phrase',
     },
+    # ─── RE (Religious Education) Word Types ─────────────────────────────────
+    'scripture': {
+        'bg': 'FFF8E1',
+        'border': 'F57F17',
+        'text': RGBColor(0xE6, 0x5C, 0x00),
+        'symbol': '\U0001F4D6',  # 📖
+        'label': 'Scripture',
+    },
+    'sacrament': {
+        'bg': 'E8EAF6',
+        'border': '283593',
+        'text': RGBColor(0x1A, 0x23, 0x7E),
+        'symbol': '\u2721',   # ✡ (sacred symbol)
+        'label': 'Sacrament',
+    },
+    'saint': {
+        'bg': 'FCE4EC',
+        'border': 'C62828',
+        'text': RGBColor(0xC6, 0x28, 0x28),
+        'symbol': '\u2605',   # ★
+        'label': 'Saint / Holy Person',
+    },
+    'prayer': {
+        'bg': 'E0F7FA',
+        'border': '00838F',
+        'text': RGBColor(0x00, 0x69, 0x78),
+        'symbol': '\U0001F54A',  # 🕊
+        'label': 'Prayer / Worship',
+    },
 }
 
 # ─── Fun Visual Themes ─────────────────────────────────────────────────────────

@@ -20,6 +20,7 @@ from generators.reading_comprehension import generate_reading_comprehension_work
 from generators.problem_solving import generate_problem_solving_worksheet
 from generators.calculation_practice import generate_calculation_practice_worksheet
 from generators.investigation import generate_investigation_worksheet
+from generators.fraction_practice import generate_fraction_practice_worksheet
 
 
 # ─── Page Configuration ────────────────────────────────────────────────────────
@@ -702,6 +703,7 @@ GENERATOR_MAP = {
     "problem_solving": generate_problem_solving_worksheet,
     "calculation_practice": generate_calculation_practice_worksheet,
     "investigation": generate_investigation_worksheet,
+    "fraction_practice": generate_fraction_practice_worksheet,
 }
 
 
@@ -822,6 +824,19 @@ def render_content_preview(content, ws_type):
             remaining = len(section.get('calculations', [])) - 3
             if remaining > 0:
                 st.caption(f"... and {remaining} more calculations")
+        challenge = content.get('challenge')
+        if challenge:
+            st.markdown(f"**Challenge:** {challenge.get('title', '')} \u2014 {challenge.get('instructions', '')}")
+
+    elif ws_type == 'fraction_practice':
+        for section in content.get('sections', []):
+            st.markdown(f"**{section.get('title', '')}**")
+            st.caption(section.get('instructions', ''))
+            for ex in section.get('exercises', [])[:3]:
+                st.markdown(f"- {ex.get('question', '')} = **{ex.get('answer', '')}**")
+            remaining = len(section.get('exercises', [])) - 3
+            if remaining > 0:
+                st.caption(f"... and {remaining} more exercises")
         challenge = content.get('challenge')
         if challenge:
             st.markdown(f"**Challenge:** {challenge.get('title', '')} \u2014 {challenge.get('instructions', '')}")
@@ -1225,7 +1240,7 @@ else:
 st.markdown(
     '<div class="app-footer">'
     'UK National Curriculum Worksheet Generator &middot; '
-    'English, Maths, Science, History, Geography, Computing (Year 1\u20136) &middot; Languages (Year 3\u20136) &middot; '
+    'English, Maths, Science, History, Geography, Computing, RE (Year 1\u20136) &middot; Languages (Year 3\u20136) &middot; '
     'Powered by Claude AI</div>',
     unsafe_allow_html=True,
 )

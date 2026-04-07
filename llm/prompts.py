@@ -81,6 +81,14 @@ SUBJECT_WORD_TYPES = {
 - "phrase" with label "\\U0001f4ac Phrases & Expressions"
 - "vocabulary" with label "\\u2b50 Key Vocabulary"
 - "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+
+    "RE": """WORD TYPES - Use these exact word_type values for colour-coding religious education concepts:
+- "scripture" with label "\\U0001f4d6 Scripture & Bible"
+- "sacrament" with label "\\u2721 Sacraments & Worship"
+- "saint" with label "\\u2605 Saints & Holy People"
+- "prayer" with label "\\U0001f54a Prayer & Worship"
+- "vocabulary" with label "\\u2b50 RE Vocabulary"
+- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
 }
 
 SUBJECT_CONTEXT = {
@@ -91,6 +99,7 @@ SUBJECT_CONTEXT = {
     "Geography": "This is a geography worksheet. Use correct geographical terminology. Include references to real places, features, and processes. Help pupils develop spatial awareness and understanding of human-environment interactions.",
     "Computing": "This is a computing worksheet. Use correct computing terminology (algorithm, variable, debug, etc.). Content should be practical and relate to real-world technology use where appropriate.",
     "Languages": "This is a foreign language learning worksheet. Include the target language words/phrases alongside English translations. Focus on building vocabulary, simple grammar patterns, and communication skills.",
+    "RE": "This is a Religious Education worksheet following 'The Way, The Truth and The Life' Catholic RE scheme. Content should be rooted in Catholic teaching, scripture, and tradition. Integrate CAFOD Catholic Social Teaching principles where relevant (Dignity of the Human Person, Family and Community, Solidarity, Rights and Responsibilities, Option for the Poor, Dignity of Workers, Care for God's Creation — represented by CAFOD's animals: Dolphin, Elephant, Bee, Lion, Eagle, Penguin, Whale). Use age-appropriate theological language. Be respectful and accurate in all references to scripture, saints, sacraments, and Church teaching.",
 }
 
 
@@ -912,10 +921,13 @@ CRITICAL RULES FOR THE JSON:
 3. For "developing" level: include "working_hint" for each calculation. Set "challenge" to null.
 4. For "expected" and "greater_depth" levels: set "working_hint" to null. Include "challenge" object.
 5. The "challenge" object has "title" (string), "instructions" (string), and "lines" (int).
-6. Use the correct mathematical notation: + - x or \\u00d7 for multiplication, \\u00f7 for division.
+6. Use the correct mathematical notation: + - x or \u00d7 for multiplication, \u00f7 for division.
 7. Ensure all calculations are correctly solvable and age-appropriate.
 8. success_criteria should have 3-5 pupil-friendly statements.
 9. Theme section titles around {theme_name} {theme_icon} to make it engaging.
+10. KEEP QUESTIONS SHORT AND EQUATION-BASED. Write calculations as equations (e.g. "345 + 278 = ___"), NOT as wordy sentences.
+11. If the topic involves fractions, ALWAYS write them as numerator/denominator (e.g. 1/2, 3/4, 2/3). NEVER write fractions as decimals (0.5, 0.75) unless the question explicitly asks for decimal conversion.
+12. For mixed numbers, write as whole number then fraction (e.g. 2 1/3).
 
 Generate the JSON now:"""
 
@@ -944,7 +956,128 @@ def get_calculation_practice_prompt(
 
 
 # =============================================================================
-# 8. INVESTIGATION PROMPT - Science investigation planner (Science-specific)
+# 8. FRACTION_PRACTICE PROMPT - Maths fraction exercises (Maths-specific)
+# =============================================================================
+
+FRACTION_PRACTICE_PROMPT = """You are an expert UK primary school teacher creating a fraction practice worksheet for {year_group} pupils (aged {age_range}).
+
+CURRICULUM CONTEXT:
+- Subject: Maths
+- Topic: {topic}
+- Learning Objective: {objective}
+- Theme: {theme_name} {theme_icon}
+- Differentiation Level: {level}
+
+{subject_context}
+
+YOUR TASK:
+Create a fraction practice worksheet themed around "{theme_name}" with sections of exercises that focus on fraction skills. This worksheet should be EQUATION-BASED with minimal text — each exercise should be a clear mathematical question, not a paragraph of text.
+
+CRITICAL FRACTION NOTATION RULES:
+- ALWAYS write fractions as numerator/denominator (e.g. 1/2, 3/4, 2/3, 7/10)
+- NEVER write fractions as decimals unless the question explicitly asks for decimal conversion
+- For mixed numbers, write them as whole number then fraction (e.g. 2 1/3, 1 3/4)
+- Use the × symbol for multiplication and ÷ for division
+- Keep questions SHORT and mathematical — avoid long sentences
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Create 2-3 sections with 4-5 exercises each
+- Focus on recognising, naming and comparing simple fractions: 1/2, 1/4, 3/4, 1/3
+- Use visual hints like "shade the shape" or "circle the fraction"
+- Include a "visual_hint" field for each exercise describing a visual aid
+- Do NOT include a challenge section (set "challenge" to null)
+- Section types: "shade" (shade a fraction of a shape), "identify" (name the fraction shown), "compare" (which is bigger)
+
+If the level is "expected":
+- Create 3-4 sections with 5-6 exercises each
+- Include equivalent fractions, adding/subtracting fractions with same denominator, fractions of amounts
+- Questions should be pure equations or short one-line problems
+- Set "visual_hint" to null for all exercises
+- Include a challenge section with 1-2 extension questions
+- Section types: "equivalent" (find equivalent fractions), "calculate" (add/subtract fractions), "fraction_of" (find fraction of an amount)
+
+If the level is "greater_depth":
+- Create 4-5 sections with 6-8 exercises each
+- Include mixed numbers, improper fractions, adding/subtracting fractions with different denominators, multiplying fractions, ordering fractions
+- Questions should be challenging equations and multi-step problems
+- Set "visual_hint" to null for all exercises
+- Include a challenge section with 2-3 open-ended extension problems
+- Section types: "convert" (mixed/improper conversion), "calculate" (operations with different denominators), "order" (order fractions), "reason" (explain/prove)
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{{
+  "title": "<A creative title themed around {theme_name}, e.g. Fraction Space Mission>",
+  "sections": [
+    {{
+      "title": "<Section title, e.g. Equivalent Fractions>",
+      "instructions": "<SHORT instruction, e.g. Find the missing number to make these fractions equal.>",
+      "type": "<section type: shade, identify, compare, equivalent, calculate, fraction_of, convert, order, reason>",
+      "exercises": [
+        {{
+          "question": "<The fraction question, e.g. 1/4 + 2/4 = ___ or What is 1/3 of 12?>",
+          "answer": "<The correct answer as a fraction, e.g. 3/4 or 4>",
+          "visual_hint": "<Description of visual aid for developing level, or null>"
+        }}
+      ]
+    }}
+  ],
+  "challenge": {{
+    "title": "<Challenge section title, e.g. Fraction Brain Buster!>",
+    "instructions": "<Instructions for the challenge>",
+    "lines": 3
+  }},
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}}
+
+CRITICAL RULES FOR THE JSON:
+1. Each section has "title" (string), "instructions" (string), "type" (string), and "exercises" (array).
+2. Each exercise has "question" (string), "answer" (string), and "visual_hint" (string or null).
+3. For "developing" level: include descriptive "visual_hint" for each exercise. Set "challenge" to null.
+4. For "expected" and "greater_depth" levels: set "visual_hint" to null. Include "challenge" object.
+5. WRITE ALL FRACTIONS as numerator/denominator (1/2, 3/4, 7/10). NEVER as decimals (0.5, 0.75).
+6. Keep questions SHORT and mathematical. No long wordy sentences.
+7. Use ___ for blanks where pupils write their answers.
+8. For comparison exercises, use < > = symbols.
+9. Ensure all answers are mathematically correct.
+10. success_criteria should have 3-5 pupil-friendly statements.
+11. Theme section titles around {theme_name} {theme_icon} to make it engaging.
+12. For mixed numbers, write as: 2 1/3 (whole number space fraction).
+
+Generate the JSON now:"""
+
+
+def get_fraction_practice_prompt(
+    year_group: str,
+    topic: str,
+    objective: str,
+    age_range: str,
+    theme_name: str,
+    theme_icon: str,
+    level: str,
+    subject: str = "Maths",
+) -> str:
+    """Build a complete fraction practice worksheet prompt with all placeholders filled."""
+    return FRACTION_PRACTICE_PROMPT.format(
+        year_group=year_group,
+        topic=topic,
+        objective=objective,
+        age_range=age_range,
+        theme_name=theme_name,
+        theme_icon=theme_icon,
+        level=level,
+        subject_context=SUBJECT_CONTEXT.get("Maths", ""),
+    )
+
+
+# =============================================================================
+# 9. INVESTIGATION PROMPT - Science investigation planner (Science-specific)
 # =============================================================================
 
 INVESTIGATION_PROMPT = """You are an expert UK primary school teacher creating a science investigation planning worksheet for {year_group} pupils (aged {age_range}).
@@ -1070,6 +1203,7 @@ _PROMPT_REGISTRY: Dict[str, Callable[..., str]] = {
     "reading_comprehension": get_reading_comprehension_prompt,
     "problem_solving": get_problem_solving_prompt,
     "calculation_practice": get_calculation_practice_prompt,
+    "fraction_practice": get_fraction_practice_prompt,
     "investigation": get_investigation_prompt,
 }
 
@@ -1099,6 +1233,9 @@ _PROMPT_ALIASES: Dict[str, str] = {
     "calculation_practice": "calculation_practice",
     "calculations": "calculation_practice",
     "calc_practice": "calculation_practice",
+    "fraction_practice": "fraction_practice",
+    "fractions": "fraction_practice",
+    "fraction": "fraction_practice",
     "investigation": "investigation",
     "investigation_planner": "investigation",
     "science_investigation": "investigation",

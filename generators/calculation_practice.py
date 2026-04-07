@@ -25,6 +25,7 @@ from generators.components import (
     remove_table_borders,
 )
 from generators.styles import COLOURS, DIFF_LEVELS, FONT_NAME, THEMES
+from generators.fraction_practice import _parse_fraction_from_text
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
@@ -121,11 +122,11 @@ def generate_calculation_practice_worksheet(
                 set_cell_borders(cell, cell_border, sz=6)
                 set_cell_padding(cell, top=120, bottom=120, left=150, right=150)
 
-                # Question text
+                # Question text — render fractions properly
                 p_q = cell.paragraphs[0]
                 set_no_spacing(p_q)
                 p_q.paragraph_format.space_after = Pt(4)
-                run_q = p_q.add_run(calc['question'])
+                run_q = p_q.add_run(_parse_fraction_from_text(calc['question']))
                 set_run_font(
                     run_q,
                     size=Pt(diff['font_size']),
@@ -138,7 +139,8 @@ def generate_calculation_practice_worksheet(
                     p_ans = cell.add_paragraph()
                     set_no_spacing(p_ans)
                     p_ans.paragraph_format.space_before = Pt(4)
-                    run_ans = p_ans.add_run(f'Answer: {calc["answer"]}')
+                    answer_text = _parse_fraction_from_text(str(calc['answer']))
+                    run_ans = p_ans.add_run(f'Answer: {answer_text}')
                     set_run_font(
                         run_ans,
                         size=Pt(diff['font_size']),
