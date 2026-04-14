@@ -21,6 +21,7 @@ from generators.problem_solving import generate_problem_solving_worksheet
 from generators.calculation_practice import generate_calculation_practice_worksheet
 from generators.investigation import generate_investigation_worksheet
 from generators.fraction_practice import generate_fraction_practice_worksheet
+from generators.times_tables import generate_times_tables_worksheet
 
 
 # ─── Page Configuration ────────────────────────────────────────────────────────
@@ -704,6 +705,7 @@ GENERATOR_MAP = {
     "calculation_practice": generate_calculation_practice_worksheet,
     "investigation": generate_investigation_worksheet,
     "fraction_practice": generate_fraction_practice_worksheet,
+    "times_tables": generate_times_tables_worksheet,
 }
 
 
@@ -731,129 +733,188 @@ def _pieces_to_preview_text(pieces):
     return ''.join(parts)
 
 
+def _words_from_category(cat):
+    """Return a list of word strings from a category, handling dict-or-str entries."""
+    return [w['word'] if isinstance(w, dict) else w for w in cat.get('words', [])]
+
+
+def _render_numbered_questions(questions):
+    """Render a numbered list of questions with type + marks badges."""
+    for q in questions:
+        marks = q.get('marks', 1)
+        st.markdown(
+            f"{q.get('number', '?')}. [{q.get('question_type', '')}] "
+            f"{q.get('question', '')} ({marks} mark{'s' if marks > 1 else ''})"
+        )
+
+
+def _preview_cloze(content):
+    for section in content.get('sections', []):
+        st.markdown(f"**{section['title']}**")
+        if section.get('reminder'):
+            st.caption(f"Reminder: {section['reminder']}")
+        for para in section.get('paragraphs', []):
+            st.markdown(_pieces_to_preview_text(para))
+    if content.get('word_bank'):
+        st.markdown("**Word Bank:**")
+        for cat in content['word_bank']:
+            st.markdown(f"- {cat.get('label', '')}: {', '.join(_words_from_category(cat))}")
+
+
+def _preview_word_bank(content):
+    if content.get('categories'):
+        st.markdown("**Categories:**")
+        for cat in content['categories']:
+            st.markdown(f"- {cat.get('label', '')}: {', '.join(_words_from_category(cat))}")
+    for activity in content.get('activities', []):
+        st.markdown(f"**Activity:** {activity.get('title', '')}")
+        for sentence in activity.get('sentences', []):
+            pieces = sentence.get('pieces', sentence) if isinstance(sentence, dict) else sentence
+            if isinstance(pieces, list):
+                st.markdown(_pieces_to_preview_text(pieces))
+
+
+def _preview_matching(content):
+    for activity in content.get('activities', []):
+        st.markdown(f"**{activity.get('title', '')}**")
+        for pair in activity.get('pairs', []):
+            st.markdown(f"- {pair['left']} \u2192 {pair['right']}")
+    bonus = content.get('bonus_activity')
+    if bonus:
+        st.markdown(f"**Bonus:** {bonus.get('title', '')} \u2014 {bonus.get('instructions', '')}")
+
+
+def _preview_sentence_builder(content):
+    for exercise in content.get('exercises', []):
+        st.markdown(f"**{exercise.get('title', '')}**")
+        parts = [p['part'] for p in exercise.get('sentence_parts', [])]
+        st.markdown(f"Parts: {' | '.join(parts)}")
+        if exercise.get('correct_sentence'):
+            st.caption(f"Answer: {exercise['correct_sentence']}")
+    ext = content.get('extension')
+    if ext:
+        st.markdown(f"**Extension:** {ext.get('title', '')} \u2014 {ext.get('instructions', '')}")
+
+
+def _preview_reading_comprehension(content):
+    passage = content.get('passage', {})
+    st.markdown(f"**Passage:** {passage.get('title', '')}")
+    text = passage.get('text', '')
+    preview_text = text[:400] + '...' if len(text) > 400 else text
+    st.markdown(preview_text)
+    if content.get('vocabulary'):
+        st.markdown("**Key Vocabulary:**")
+        for v in content['vocabulary']:
+            st.markdown(f"- **{v.get('word', '')}** ({v.get('word_type', '')}): {v.get('definition', '')}")
+    st.markdown("**Questions:**")
+    _render_numbered_questions(content.get('questions', []))
+
+
+def _preview_problem_solving(content):
+    scenario = content.get('scenario', {})
+    st.markdown(f"**Scenario:** {scenario.get('title', '')}")
+    text = scenario.get('text', '')
+    st.markdown(text[:300] + '...' if len(text) > 300 else text)
+    if scenario.get('data'):
+        st.markdown("**Data:**")
+        for item in scenario['data']:
+            st.markdown(f"- {item.get('label', '')}: {item.get('value', '')}")
+    st.markdown("**Questions:**")
+    _render_numbered_questions(content.get('questions', []))
+
+
+def _render_sectioned_items(content, items_key, item_formatter, item_label, preview_count=3):
+    """Render sections containing a list of items (calculations, exercises, facts)."""
+    for section in content.get('sections', []):
+        st.markdown(f"**{section.get('title', '')}**")
+        st.caption(section.get('instructions', ''))
+        items = section.get(items_key, [])
+        for item in items[:preview_count]:
+            st.markdown(item_formatter(item))
+        remaining = len(items) - preview_count
+        if remaining > 0:
+            st.caption(f"... and {remaining} more {item_label}")
+
+
+def _render_challenge(content):
+    challenge = content.get('challenge')
+    if challenge:
+        st.markdown(f"**Challenge:** {challenge.get('title', '')} \u2014 {challenge.get('instructions', '')}")
+
+
+def _preview_calculation_practice(content):
+    _render_sectioned_items(
+        content, 'calculations',
+        lambda c: f"- {c.get('question', '')} = **{c.get('answer', '')}**",
+        'calculations',
+    )
+    _render_challenge(content)
+
+
+def _preview_fraction_practice(content):
+    _render_sectioned_items(
+        content, 'exercises',
+        lambda ex: f"- {ex.get('question', '')} = **{ex.get('answer', '')}**",
+        'exercises',
+    )
+    _render_challenge(content)
+
+
+def _preview_times_tables(content):
+    for section in content.get('sections', []):
+        st.markdown(f"**{section.get('title', '')}** \u2014 _{section.get('tables_focus', '')}_")
+        st.caption(section.get('instructions', ''))
+        facts = section.get('facts', [])
+        for fact in facts[:4]:
+            st.markdown(f"- {fact.get('question', '')} \u2192 **{fact.get('answer', '')}**")
+        remaining = len(facts) - 4
+        if remaining > 0:
+            st.caption(f"... and {remaining} more facts")
+    speed = content.get('speed_challenge')
+    if speed:
+        st.markdown(
+            f"**Speed Challenge:** {speed.get('title', '')} \u2014 "
+            f"{speed.get('time_limit_seconds', '?')}s, "
+            f"{len(speed.get('facts', []))} facts"
+        )
+
+
+def _preview_investigation(content):
+    inv = content.get('investigation', {})
+    st.markdown(f"**Question:** {inv.get('question', '')}")
+    st.markdown(f"**Prediction:** {inv.get('prediction', '')}")
+    variables = inv.get('variables', {})
+    if variables:
+        st.markdown(f"- **Change:** {variables.get('change', '')}")
+        st.markdown(f"- **Measure:** {variables.get('measure', '')}")
+        st.markdown(f"- **Keep same:** {', '.join(variables.get('keep_same', []))}")
+    if content.get('method'):
+        st.markdown("**Method:**")
+        for i, step in enumerate(content['method'], 1):
+            st.markdown(f"{i}. {step}")
+
+
+_PREVIEW_RENDERERS = {
+    'cloze': _preview_cloze,
+    'word_bank': _preview_word_bank,
+    'matching': _preview_matching,
+    'sentence_builder': _preview_sentence_builder,
+    'reading_comprehension': _preview_reading_comprehension,
+    'problem_solving': _preview_problem_solving,
+    'calculation_practice': _preview_calculation_practice,
+    'fraction_practice': _preview_fraction_practice,
+    'times_tables': _preview_times_tables,
+    'investigation': _preview_investigation,
+}
+
+
 def render_content_preview(content, ws_type):
     """Render a structured Streamlit preview of LLM-generated content."""
     st.markdown(f"**Title:** {content.get('title', 'Untitled')}")
 
-    if ws_type == 'cloze':
-        for section in content.get('sections', []):
-            st.markdown(f"**{section['title']}**")
-            if section.get('reminder'):
-                st.caption(f"Reminder: {section['reminder']}")
-            for para in section.get('paragraphs', []):
-                st.markdown(_pieces_to_preview_text(para))
-        if content.get('word_bank'):
-            st.markdown("**Word Bank:**")
-            for cat in content['word_bank']:
-                words = [w['word'] if isinstance(w, dict) else w for w in cat.get('words', [])]
-                st.markdown(f"- {cat.get('label', '')}: {', '.join(words)}")
-
-    elif ws_type == 'word_bank':
-        if content.get('categories'):
-            st.markdown("**Categories:**")
-            for cat in content['categories']:
-                words = [w['word'] if isinstance(w, dict) else w for w in cat.get('words', [])]
-                st.markdown(f"- {cat.get('label', '')}: {', '.join(words)}")
-        for activity in content.get('activities', []):
-            st.markdown(f"**Activity:** {activity.get('title', '')}")
-            for sentence in activity.get('sentences', []):
-                pieces = sentence.get('pieces', sentence) if isinstance(sentence, dict) else sentence
-                if isinstance(pieces, list):
-                    st.markdown(_pieces_to_preview_text(pieces))
-
-    elif ws_type == 'matching':
-        for activity in content.get('activities', []):
-            st.markdown(f"**{activity.get('title', '')}**")
-            for pair in activity.get('pairs', []):
-                st.markdown(f"- {pair['left']} \u2192 {pair['right']}")
-        bonus = content.get('bonus_activity')
-        if bonus:
-            st.markdown(f"**Bonus:** {bonus.get('title', '')} \u2014 {bonus.get('instructions', '')}")
-
-    elif ws_type == 'sentence_builder':
-        for exercise in content.get('exercises', []):
-            st.markdown(f"**{exercise.get('title', '')}**")
-            parts = [p['part'] for p in exercise.get('sentence_parts', [])]
-            st.markdown(f"Parts: {' | '.join(parts)}")
-            if exercise.get('correct_sentence'):
-                st.caption(f"Answer: {exercise['correct_sentence']}")
-        ext = content.get('extension')
-        if ext:
-            st.markdown(f"**Extension:** {ext.get('title', '')} \u2014 {ext.get('instructions', '')}")
-
-    elif ws_type == 'reading_comprehension':
-        passage = content.get('passage', {})
-        st.markdown(f"**Passage:** {passage.get('title', '')}")
-        text = passage.get('text', '')
-        preview_text = text[:400] + '...' if len(text) > 400 else text
-        st.markdown(preview_text)
-        if content.get('vocabulary'):
-            st.markdown("**Key Vocabulary:**")
-            for v in content['vocabulary']:
-                st.markdown(f"- **{v.get('word', '')}** ({v.get('word_type', '')}): {v.get('definition', '')}")
-        st.markdown("**Questions:**")
-        for q in content.get('questions', []):
-            marks = q.get('marks', 1)
-            st.markdown(
-                f"{q.get('number', '?')}. [{q.get('question_type', '')}] "
-                f"{q.get('question', '')} ({marks} mark{'s' if marks > 1 else ''})"
-            )
-
-    elif ws_type == 'problem_solving':
-        scenario = content.get('scenario', {})
-        st.markdown(f"**Scenario:** {scenario.get('title', '')}")
-        st.markdown(scenario.get('text', '')[:300] + '...' if len(scenario.get('text', '')) > 300 else scenario.get('text', ''))
-        if scenario.get('data'):
-            st.markdown("**Data:**")
-            for item in scenario['data']:
-                st.markdown(f"- {item.get('label', '')}: {item.get('value', '')}")
-        st.markdown("**Questions:**")
-        for q in content.get('questions', []):
-            marks = q.get('marks', 1)
-            st.markdown(
-                f"{q.get('number', '?')}. [{q.get('question_type', '')}] "
-                f"{q.get('question', '')} ({marks} mark{'s' if marks > 1 else ''})"
-            )
-
-    elif ws_type == 'calculation_practice':
-        for section in content.get('sections', []):
-            st.markdown(f"**{section.get('title', '')}**")
-            st.caption(section.get('instructions', ''))
-            for calc in section.get('calculations', [])[:3]:
-                st.markdown(f"- {calc.get('question', '')} = **{calc.get('answer', '')}**")
-            remaining = len(section.get('calculations', [])) - 3
-            if remaining > 0:
-                st.caption(f"... and {remaining} more calculations")
-        challenge = content.get('challenge')
-        if challenge:
-            st.markdown(f"**Challenge:** {challenge.get('title', '')} \u2014 {challenge.get('instructions', '')}")
-
-    elif ws_type == 'fraction_practice':
-        for section in content.get('sections', []):
-            st.markdown(f"**{section.get('title', '')}**")
-            st.caption(section.get('instructions', ''))
-            for ex in section.get('exercises', [])[:3]:
-                st.markdown(f"- {ex.get('question', '')} = **{ex.get('answer', '')}**")
-            remaining = len(section.get('exercises', [])) - 3
-            if remaining > 0:
-                st.caption(f"... and {remaining} more exercises")
-        challenge = content.get('challenge')
-        if challenge:
-            st.markdown(f"**Challenge:** {challenge.get('title', '')} \u2014 {challenge.get('instructions', '')}")
-
-    elif ws_type == 'investigation':
-        inv = content.get('investigation', {})
-        st.markdown(f"**Question:** {inv.get('question', '')}")
-        st.markdown(f"**Prediction:** {inv.get('prediction', '')}")
-        variables = inv.get('variables', {})
-        if variables:
-            st.markdown(f"- **Change:** {variables.get('change', '')}")
-            st.markdown(f"- **Measure:** {variables.get('measure', '')}")
-            st.markdown(f"- **Keep same:** {', '.join(variables.get('keep_same', []))}")
-        if content.get('method'):
-            st.markdown("**Method:**")
-            for i, step in enumerate(content['method'], 1):
-                st.markdown(f"{i}. {step}")
+    renderer = _PREVIEW_RENDERERS.get(ws_type)
+    if renderer:
+        renderer(content)
 
     # Success criteria (common to all types)
     criteria = content.get('success_criteria', [])

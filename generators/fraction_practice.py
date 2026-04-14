@@ -92,6 +92,63 @@ def render_fraction_text(numerator, denominator):
     return f'{sup}{_FRACTION_SLASH}{sub}'
 
 
+def _add_fraction_diagram(cell, shaded, total, theme_key='classic'):
+    """
+    Render a simple shaded-shape fraction diagram inside a cell.
+
+    Creates a nested table of `total` equal-width cells, with the first
+    `shaded` cells filled in the theme accent colour. Good for Year 1-3
+    visual recognition of fractions like 3/4, 2/5, etc.
+
+    Args:
+        cell: The parent docx cell to add the diagram into
+        shaded: Number of cells to fill
+        total: Total number of cells (the denominator)
+        theme_key: Visual theme key for shading colour
+    """
+    try:
+        shaded_int = int(shaded)
+        total_int = int(total)
+    except (ValueError, TypeError):
+        return
+    if total_int <= 0 or total_int > 12 or shaded_int < 0 or shaded_int > total_int:
+        return
+
+    theme = THEMES.get(theme_key, THEMES['classic'])
+    shaded_colour = theme['accent']
+    unshaded_colour = 'FFFFFF'
+    border_colour = theme['header']
+
+    # Spacer paragraph before the diagram
+    p_spacer = cell.add_paragraph()
+    set_no_spacing(p_spacer)
+    p_spacer.paragraph_format.space_before = Pt(4)
+    p_spacer.paragraph_format.space_after = Pt(2)
+
+    # Nested 1-row table with `total` cells
+    diagram = cell.add_table(rows=1, cols=total_int)
+
+    for idx in range(total_int):
+        diagram_cell = diagram.cell(0, idx)
+        fill = shaded_colour if idx < shaded_int else unshaded_colour
+        set_cell_shading(diagram_cell, fill)
+        set_cell_borders(diagram_cell, border_colour, sz=6)
+        set_cell_padding(diagram_cell, top=140, bottom=140, left=60, right=60)
+        # Empty content — just the shaded block
+        diagram_cell.paragraphs[0].clear()
+        p = diagram_cell.paragraphs[0]
+        set_no_spacing(p)
+        run = p.add_run(' ')
+        set_run_font(run, size=Pt(10), colour=COLOURS['black'])
+
+
+import re
+
+# Match patterns like 3/4, 12/100, etc. but not dates (2024/03/15),
+# file paths, or chained slashes. Excludes digit-or-slash on either side.
+_FRACTION_PATTERN = re.compile(r'(?<![\d/])(\d{1,3})/(\d{1,3})(?![\d/])')
+
+
 def _parse_fraction_from_text(text):
     """
     Attempt to detect and replace fraction notation in a text string.
@@ -101,10 +158,6 @@ def _parse_fraction_from_text(text):
 
     Returns the processed text string.
     """
-    import re
-    # Match patterns like 3/4, 12/100, etc. but not dates or file paths
-    fraction_pattern = re.compile(r'(?<!\d)(\d{1,3})/(\d{1,3})(?!\d|/)')
-
     def replace_match(m):
         num = int(m.group(1))
         den = int(m.group(2))
@@ -112,7 +165,106 @@ def _parse_fraction_from_text(text):
             return m.group(0)  # Don't replace division by zero
         return render_fraction_text(num, den)
 
-    return fraction_pattern.sub(replace_match, text)
+    return _FRACTION_PATTERN.sub(replace_match, text)
+
+
+def _render_exercise_cell(cell, idx, exercise, theme, theme_key, diff, show_answers):
+    """Render a single fraction exercise inside a table cell."""
+    set_cell_shading(cell, theme['body'])
+    set_cell_borders(cell, theme['accent'], sz=6)
+    set_cell_padding(cell, top=120, bottom=120, left=150, right=150)
+
+    # Question line: number + question text (fractions rendered)
+    p_q = cell.paragraphs[0]
+    set_no_spacing(p_q)
+    p_q.paragraph_format.space_after = Pt(4)
+
+    run_num = p_q.add_run(f'{idx + 1}. ')
+    set_run_font(
+        run_num,
+        size=Pt(diff['font_size']),
+        bold=True,
+        colour=RGBColor.from_string(theme['header']),
+    )
+
+    question_text = _parse_fraction_from_text(exercise.get('question', ''))
+    run_q = p_q.add_run(question_text)
+    set_run_font(
+        run_q,
+        size=Pt(diff['font_size'] + 2),
+        bold=True,
+        colour=COLOURS['black'],
+    )
+
+    # Visual diagram (shade X of Y cells) — for developing level recognition
+    diagram = exercise.get('diagram')
+    if diagram and not show_answers:
+        _add_fraction_diagram(
+            cell,
+            diagram.get('shaded', 0),
+            diagram.get('total', 0),
+            theme_key,
+        )
+
+    # Visual hint text (sentence describing what to shade, etc.)
+    visual_hint = exercise.get('visual_hint')
+    if visual_hint and not show_answers:
+        p_hint = cell.add_paragraph()
+        set_no_spacing(p_hint)
+        p_hint.paragraph_format.space_before = Pt(4)
+        run_hint = p_hint.add_run(_parse_fraction_from_text(visual_hint))
+        set_run_font(
+            run_hint,
+            size=Pt(diff['font_size'] - 3),
+            italic=True,
+            colour=COLOURS['hint_text'],
+        )
+
+    # Answer or blank line
+    if show_answers and exercise.get('answer'):
+        answer_text = _parse_fraction_from_text(str(exercise['answer']))
+        p_ans = cell.add_paragraph()
+        set_no_spacing(p_ans)
+        p_ans.paragraph_format.space_before = Pt(4)
+        run_ans = p_ans.add_run(f'Answer: {answer_text}')
+        set_run_font(
+            run_ans,
+            size=Pt(diff['font_size']),
+            bold=True,
+            colour=COLOURS['criteria_text'],
+        )
+    elif not show_answers:
+        p_ans = cell.add_paragraph()
+        set_no_spacing(p_ans)
+        p_ans.paragraph_format.space_before = Pt(8)
+        run_ans = p_ans.add_run('Answer: _______________')
+        set_run_font(
+            run_ans,
+            size=Pt(diff['font_size']),
+            colour=COLOURS['hint_text'],
+        )
+
+
+def _render_exercise_grid(doc, exercises, theme, theme_key, diff, show_answers):
+    """Render a 2-column grid of fraction exercises."""
+    num_rows = math.ceil(len(exercises) / 2)
+    if num_rows == 0:
+        return
+
+    table = doc.add_table(rows=num_rows, cols=2)
+    set_table_full_width(table)
+    remove_table_borders(table)
+
+    for idx, exercise in enumerate(exercises):
+        cell = table.cell(idx // 2, idx % 2)
+        _render_exercise_cell(
+            cell, idx, exercise, theme, theme_key, diff, show_answers,
+        )
+
+    # Clear any leftover empty cell when odd number of exercises
+    if len(exercises) % 2 == 1:
+        empty_cell = table.cell(num_rows - 1, 1)
+        empty_cell.paragraphs[0].clear()
 
 
 def generate_fraction_practice_worksheet(
@@ -190,101 +342,9 @@ def generate_fraction_practice_worksheet(
             )
 
         # Build the exercise grid (2-column layout)
-        exercises = section.get('exercises', [])
-        section_type = section.get('type', 'calculate')
-        num_rows = math.ceil(len(exercises) / 2)
-
-        if num_rows > 0:
-            table = doc.add_table(rows=num_rows, cols=2)
-            set_table_full_width(table)
-            remove_table_borders(table)
-
-            cell_bg = theme['body']
-            cell_border = theme['accent']
-
-            for idx, exercise in enumerate(exercises):
-                row_idx = idx // 2
-                col_idx = idx % 2
-                cell = table.cell(row_idx, col_idx)
-
-                set_cell_shading(cell, cell_bg)
-                set_cell_borders(cell, cell_border, sz=6)
-                set_cell_padding(cell, top=120, bottom=120, left=150, right=150)
-
-                # Question text — render fractions properly
-                question_text = _parse_fraction_from_text(
-                    exercise.get('question', '')
-                )
-                p_q = cell.paragraphs[0]
-                set_no_spacing(p_q)
-                p_q.paragraph_format.space_after = Pt(4)
-
-                # Question number prefix
-                q_num = idx + 1
-                run_num = p_q.add_run(f'{q_num}. ')
-                set_run_font(
-                    run_num,
-                    size=Pt(diff['font_size']),
-                    bold=True,
-                    colour=RGBColor.from_string(theme['header']),
-                )
-
-                # Question content with large font for fraction visibility
-                run_q = p_q.add_run(question_text)
-                set_run_font(
-                    run_q,
-                    size=Pt(diff['font_size'] + 2),  # Slightly larger for fraction clarity
-                    bold=True,
-                    colour=COLOURS['black'],
-                )
-
-                # Visual hint for developing level (e.g. fraction diagram description)
-                visual_hint = exercise.get('visual_hint')
-                if visual_hint and not show_answers:
-                    p_hint = cell.add_paragraph()
-                    set_no_spacing(p_hint)
-                    p_hint.paragraph_format.space_before = Pt(4)
-                    run_hint = p_hint.add_run(
-                        _parse_fraction_from_text(visual_hint)
-                    )
-                    set_run_font(
-                        run_hint,
-                        size=Pt(diff['font_size'] - 3),
-                        italic=True,
-                        colour=COLOURS['hint_text'],
-                    )
-
-                # Show answer in bold green if answer key mode
-                if show_answers and exercise.get('answer'):
-                    answer_text = _parse_fraction_from_text(
-                        str(exercise['answer'])
-                    )
-                    p_ans = cell.add_paragraph()
-                    set_no_spacing(p_ans)
-                    p_ans.paragraph_format.space_before = Pt(4)
-                    run_ans = p_ans.add_run(f'Answer: {answer_text}')
-                    set_run_font(
-                        run_ans,
-                        size=Pt(diff['font_size']),
-                        bold=True,
-                        colour=COLOURS['criteria_text'],
-                    )
-                elif not show_answers:
-                    # Blank answer line
-                    p_ans = cell.add_paragraph()
-                    set_no_spacing(p_ans)
-                    p_ans.paragraph_format.space_before = Pt(8)
-                    run_ans = p_ans.add_run('Answer: _______________')
-                    set_run_font(
-                        run_ans,
-                        size=Pt(diff['font_size']),
-                        colour=COLOURS['hint_text'],
-                    )
-
-            # Clear any leftover empty cells when odd number of exercises
-            if len(exercises) % 2 == 1:
-                empty_cell = table.cell(num_rows - 1, 1)
-                empty_cell.paragraphs[0].clear()
+        _render_exercise_grid(
+            doc, section.get('exercises', []), theme, theme_key, diff, show_answers,
+        )
 
     # 5. Add challenge section if present (skip for developing level)
     challenge = content.get('challenge')

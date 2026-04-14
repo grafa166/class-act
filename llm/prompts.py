@@ -99,7 +99,24 @@ SUBJECT_CONTEXT = {
     "Geography": "This is a geography worksheet. Use correct geographical terminology. Include references to real places, features, and processes. Help pupils develop spatial awareness and understanding of human-environment interactions.",
     "Computing": "This is a computing worksheet. Use correct computing terminology (algorithm, variable, debug, etc.). Content should be practical and relate to real-world technology use where appropriate.",
     "Languages": "This is a foreign language learning worksheet. Include the target language words/phrases alongside English translations. Focus on building vocabulary, simple grammar patterns, and communication skills.",
-    "RE": "This is a Religious Education worksheet following 'The Way, The Truth and The Life' Catholic RE scheme. Content should be rooted in Catholic teaching, scripture, and tradition. Integrate CAFOD Catholic Social Teaching principles where relevant (Dignity of the Human Person, Family and Community, Solidarity, Rights and Responsibilities, Option for the Poor, Dignity of Workers, Care for God's Creation — represented by CAFOD's animals: Dolphin, Elephant, Bee, Lion, Eagle, Penguin, Whale). Use age-appropriate theological language. Be respectful and accurate in all references to scripture, saints, sacraments, and Church teaching.",
+    "RE": """This is a Religious Education worksheet following 'The Way, The Truth and The Life' Catholic RE scheme. Content should be rooted in Catholic teaching, scripture, and tradition. Use age-appropriate theological language. Be respectful and accurate in all references to scripture, saints, sacraments, and Church teaching.
+
+CAFOD CATHOLIC SOCIAL TEACHING ANIMALS - IMPORTANT:
+When any of the seven CAFOD Social Teaching principles is mentioned in titles, section headings, topics, or examples, you MUST prefix it with the correct animal emoji. The seven principles and their animals are:
+- \U0001F42C Dolphin: Dignity of the Human Person (every person is precious, made in God's image)
+- \U0001F418 Elephant: Family and Community (we belong to families and communities)
+- \U0001F41D Bee: Solidarity (we are one human family, working together)
+- \U0001F981 Lion: Rights and Responsibilities (standing up for what is right, justice)
+- \U0001F985 Eagle: Option for the Poor (caring for those in need, the vulnerable)
+- \U0001F427 Penguin: Dignity of Workers (fair work, dignity in employment)
+- \U0001F433 Whale: Care for God's Creation (stewardship, environment)
+
+Examples:
+- "\U0001F42C Every Person Is Precious" (dignity topic)
+- "\U0001F433 Looking After God's World" (creation/environment topic)
+- "\U0001F985 Helping Those in Need" (option for the poor)
+
+Use the emoji prefix in section titles, activity headings, and any content that directly references a CST principle. This helps pupils recognise the CAFOD animal characters throughout their learning.""",
 }
 
 
@@ -987,6 +1004,7 @@ If the level is "developing":
 - Focus on recognising, naming and comparing simple fractions: 1/2, 1/4, 3/4, 1/3
 - Use visual hints like "shade the shape" or "circle the fraction"
 - Include a "visual_hint" field for each exercise describing a visual aid
+- Include a "diagram" field where helpful — an object {{"shaded": <number of cells to shade>, "total": <total cells / denominator>}}. The worksheet will render this as an actual shaded shape diagram (e.g. {{"shaded": 3, "total": 4}} draws 4 cells with 3 shaded = 3/4). Use for "shade" and "identify" section types.
 - Do NOT include a challenge section (set "challenge" to null)
 - Section types: "shade" (shade a fraction of a shape), "identify" (name the fraction shown), "compare" (which is bigger)
 
@@ -1019,7 +1037,8 @@ YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text o
         {{
           "question": "<The fraction question, e.g. 1/4 + 2/4 = ___ or What is 1/3 of 12?>",
           "answer": "<The correct answer as a fraction, e.g. 3/4 or 4>",
-          "visual_hint": "<Description of visual aid for developing level, or null>"
+          "visual_hint": "<Description of visual aid for developing level, or null>",
+          "diagram": {{"shaded": 3, "total": 4}}
         }}
       ]
     }}
@@ -1038,9 +1057,9 @@ YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text o
 
 CRITICAL RULES FOR THE JSON:
 1. Each section has "title" (string), "instructions" (string), "type" (string), and "exercises" (array).
-2. Each exercise has "question" (string), "answer" (string), and "visual_hint" (string or null).
-3. For "developing" level: include descriptive "visual_hint" for each exercise. Set "challenge" to null.
-4. For "expected" and "greater_depth" levels: set "visual_hint" to null. Include "challenge" object.
+2. Each exercise has "question" (string), "answer" (string), "visual_hint" (string or null), and optionally "diagram" (object or null).
+3. For "developing" level: include descriptive "visual_hint" for each exercise. Include a "diagram" object ({{"shaded": int, "total": int}}) for exercises in "shade" and "identify" sections so the worksheet can render a real shaded-shape diagram. The "total" must be between 2 and 12. Set "challenge" to null.
+4. For "expected" and "greater_depth" levels: set "visual_hint" to null and omit "diagram" (or set to null). Include "challenge" object.
 5. WRITE ALL FRACTIONS as numerator/denominator (1/2, 3/4, 7/10). NEVER as decimals (0.5, 0.75).
 6. Keep questions SHORT and mathematical. No long wordy sentences.
 7. Use ___ for blanks where pupils write their answers.
@@ -1077,7 +1096,129 @@ def get_fraction_practice_prompt(
 
 
 # =============================================================================
-# 9. INVESTIGATION PROMPT - Science investigation planner (Science-specific)
+# 9. TIMES_TABLES PROMPT - Multiplication & division fact drill (Maths-specific)
+# =============================================================================
+
+TIMES_TABLES_PROMPT = """You are an expert UK primary school teacher creating a times tables drill worksheet for {year_group} pupils (aged {age_range}).
+
+CURRICULUM CONTEXT:
+- Subject: Maths
+- Topic: {topic}
+- Learning Objective: {objective}
+- Theme: {theme_name} {theme_icon}
+- Differentiation Level: {level}
+
+{subject_context}
+
+YOUR TASK:
+Create a pure-equation times tables practice worksheet themed around "{theme_name}". Every item must be a short multiplication or division fact — NO wordy questions, NO word problems.
+
+UK NATIONAL CURRICULUM TIMES TABLES EXPECTATIONS:
+- Year 1: Counting in 2s, 5s and 10s
+- Year 2: Recall 2, 5 and 10 times tables
+- Year 3: Recall 3, 4 and 8 times tables (plus 2, 5, 10)
+- Year 4: Recall all tables up to 12 x 12
+- Year 5-6: Fluency in all tables; derived facts (e.g. 4 x 30, 0.4 x 6)
+
+FACT FORMAT RULES:
+- Use x (lowercase x) or the \u00d7 symbol for multiplication
+- Use \u00f7 for division
+- Questions must be SHORT: "7 x 4 = ___" or "56 \u00f7 8 = ___" or "? x 6 = 42"
+- Do NOT write word problems. NEVER write a sentence longer than the equation.
+- Mix standard facts, missing-number facts, and inverse (division) facts as appropriate for the level
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Create 2 sections, each focused on ONE times table appropriate for {year_group}
+- Include 8-10 facts per section
+- Use straightforward standard format (e.g. "3 x 4 = ___")
+- Include 1-2 counting facts at the start as warm-up
+- Do NOT include a speed challenge (set "speed_challenge" to null)
+- tables_focus should name the specific table, e.g. "2 times table"
+
+If the level is "expected":
+- Create 3 sections covering multiple relevant times tables for {year_group}
+- Include 10-12 facts per section
+- Mix standard facts (e.g. "6 x 7 = ___") with missing-number facts (e.g. "? x 8 = 48")
+- Include a speed_challenge with 10 mixed facts and a 60-second time limit
+- tables_focus may name a group, e.g. "3 and 4 times tables"
+
+If the level is "greater_depth":
+- Create 3-4 sections covering the full range of tables for {year_group}
+- Include 12-15 facts per section
+- Mix standard, missing-number, division (inverse) facts, and derived facts (e.g. "40 x 7 = ___")
+- Include a speed_challenge with 15 mixed facts and a 90-second time limit
+- Include reasoning-style facts where relevant (e.g. "If 6 x 7 = 42, what is 60 x 7?")
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{{
+  "title": "<Creative title themed around {theme_name}, e.g. Jungle Times Tables Quest>",
+  "sections": [
+    {{
+      "title": "<Section title, e.g. The 4 Times Table>",
+      "instructions": "<SHORT instruction, e.g. Answer each fact. Write your answer on the line.>",
+      "tables_focus": "<which tables this section drills, e.g. 4 times table>",
+      "facts": [
+        {{"question": "<short equation, e.g. 3 x 4 = ___>", "answer": "<numeric answer, e.g. 12>"}}
+      ]
+    }}
+  ],
+  "speed_challenge": {{
+    "title": "<Speed challenge title, e.g. Final Sprint!>",
+    "instructions": "<Brief instruction, e.g. Answer as many as you can before the timer runs out!>",
+    "time_limit_seconds": 60,
+    "facts": [
+      {{"question": "<short equation>", "answer": "<numeric answer>"}}
+    ]
+  }},
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}}
+
+CRITICAL RULES FOR THE JSON:
+1. Every "question" must be a short equation, not a sentence. Example OK: "7 x 8 = ___". Example NOT OK: "If there are 7 groups of 8 apples, how many apples are there?"
+2. Every "answer" must be a single number (as a string).
+3. For "developing" level: set "speed_challenge" to null.
+4. For "expected" and "greater_depth": "speed_challenge" is an object with title, instructions, time_limit_seconds (int), and facts (array).
+5. Ensure all facts are mathematically correct.
+6. success_criteria should have 3-5 pupil-friendly statements.
+7. Theme section titles around {theme_name} {theme_icon}.
+8. Do NOT repeat the same fact within a section.
+9. Within a section, facts should be mixed in order (not sequential like 1x4, 2x4, 3x4...) to test recall.
+
+Generate the JSON now:"""
+
+
+def get_times_tables_prompt(
+    year_group: str,
+    topic: str,
+    objective: str,
+    age_range: str,
+    theme_name: str,
+    theme_icon: str,
+    level: str,
+    subject: str = "Maths",
+) -> str:
+    """Build a complete times tables drill worksheet prompt with all placeholders filled."""
+    return TIMES_TABLES_PROMPT.format(
+        year_group=year_group,
+        topic=topic,
+        objective=objective,
+        age_range=age_range,
+        theme_name=theme_name,
+        theme_icon=theme_icon,
+        level=level,
+        subject_context=SUBJECT_CONTEXT.get("Maths", ""),
+    )
+
+
+# =============================================================================
+# 10. INVESTIGATION PROMPT - Science investigation planner (Science-specific)
 # =============================================================================
 
 INVESTIGATION_PROMPT = """You are an expert UK primary school teacher creating a science investigation planning worksheet for {year_group} pupils (aged {age_range}).
@@ -1204,6 +1345,7 @@ _PROMPT_REGISTRY: Dict[str, Callable[..., str]] = {
     "problem_solving": get_problem_solving_prompt,
     "calculation_practice": get_calculation_practice_prompt,
     "fraction_practice": get_fraction_practice_prompt,
+    "times_tables": get_times_tables_prompt,
     "investigation": get_investigation_prompt,
 }
 
@@ -1236,6 +1378,11 @@ _PROMPT_ALIASES: Dict[str, str] = {
     "fraction_practice": "fraction_practice",
     "fractions": "fraction_practice",
     "fraction": "fraction_practice",
+    "times_tables": "times_tables",
+    "times_table": "times_tables",
+    "tables": "times_tables",
+    "multiplication_facts": "times_tables",
+    "multiplication_drill": "times_tables",
     "investigation": "investigation",
     "investigation_planner": "investigation",
     "science_investigation": "investigation",

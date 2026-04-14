@@ -278,6 +278,56 @@ WORD_TYPES = {
     },
 }
 
+# ─── CAFOD Catholic Social Teaching Animals ──────────────────────────────────
+# Each of the seven principles of Catholic Social Teaching is represented
+# in CAFOD's primary school resources by an animal. Used by the RE
+# generators to inject the correct emoji when a principle is mentioned.
+
+CAFOD_ANIMALS = {
+    'dignity': {
+        'emoji': '\U0001F42C',   # 🐬 Dolphin
+        'name': 'Dolphin',
+        'principle': 'Dignity of the Human Person',
+        'keywords': ['dignity', 'precious', 'image of god', 'human person', 'every person'],
+    },
+    'community': {
+        'emoji': '\U0001F418',   # 🐘 Elephant
+        'name': 'Elephant',
+        'principle': 'Family and Community',
+        'keywords': ['family', 'community', 'parish', 'together', 'belonging'],
+    },
+    'solidarity': {
+        'emoji': '\U0001F41D',   # 🐝 Bee
+        'name': 'Bee',
+        'principle': 'Solidarity',
+        'keywords': ['solidarity', 'sharing', 'one human family', 'unity'],
+    },
+    'rights': {
+        'emoji': '\U0001F981',   # 🦁 Lion
+        'name': 'Lion',
+        'principle': 'Rights and Responsibilities',
+        'keywords': ['rights', 'responsibilities', 'justice', 'fairness', 'stand up'],
+    },
+    'poor': {
+        'emoji': '\U0001F985',   # 🦅 Eagle
+        'name': 'Eagle',
+        'principle': 'Option for the Poor',
+        'keywords': ['poor', 'poverty', 'vulnerable', 'those in need', 'option for the poor'],
+    },
+    'workers': {
+        'emoji': '\U0001F427',   # 🐧 Penguin
+        'name': 'Penguin',
+        'principle': 'Dignity of Workers',
+        'keywords': ['workers', 'work', 'fair work', 'dignity of workers', 'employment'],
+    },
+    'creation': {
+        'emoji': '\U0001F433',   # 🐳 Whale
+        'name': 'Whale',
+        'principle': 'Care for God\u2019s Creation',
+        'keywords': ['creation', 'environment', 'stewardship', 'earth', 'planet', 'care for'],
+    },
+}
+
 # ─── Fun Visual Themes ─────────────────────────────────────────────────────────
 # Each theme transforms the look and feel of worksheets.
 

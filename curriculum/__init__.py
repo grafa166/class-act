@@ -15,10 +15,15 @@ from curriculum.languages import LANGUAGES_CURRICULUM
 from curriculum.re import RE_CURRICULUM
 
 
+# Year group lists used across subject configurations
+YEAR_GROUPS_1_6 = ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"]
+YEAR_GROUPS_3_6 = ["Year 3", "Year 4", "Year 5", "Year 6"]
+
+
 SUBJECT_REGISTRY = {
     "English": {
         "curriculum": ENGLISH_CURRICULUM,
-        "years": ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"],
+        "years": YEAR_GROUPS_1_6,
         "worksheet_types": [
             "cloze", "word_bank", "matching",
             "sentence_builder", "reading_comprehension",
@@ -28,9 +33,9 @@ SUBJECT_REGISTRY = {
     },
     "Maths": {
         "curriculum": MATHS_CURRICULUM,
-        "years": ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"],
+        "years": YEAR_GROUPS_1_6,
         "worksheet_types": [
-            "calculation_practice", "fraction_practice",
+            "calculation_practice", "fraction_practice", "times_tables",
             "problem_solving", "matching",
         ],
         "word_types": ["operation", "shape", "measure", "number", "vocabulary", "open"],
@@ -38,7 +43,7 @@ SUBJECT_REGISTRY = {
     },
     "Science": {
         "curriculum": SCIENCE_CURRICULUM,
-        "years": ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"],
+        "years": YEAR_GROUPS_1_6,
         "worksheet_types": [
             "cloze", "word_bank", "matching",
             "reading_comprehension", "investigation",
@@ -48,7 +53,7 @@ SUBJECT_REGISTRY = {
     },
     "History": {
         "curriculum": HISTORY_CURRICULUM,
-        "years": ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"],
+        "years": YEAR_GROUPS_1_6,
         "worksheet_types": [
             "cloze", "word_bank", "matching",
             "sentence_builder", "reading_comprehension",
@@ -58,7 +63,7 @@ SUBJECT_REGISTRY = {
     },
     "Geography": {
         "curriculum": GEOGRAPHY_CURRICULUM,
-        "years": ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"],
+        "years": YEAR_GROUPS_1_6,
         "worksheet_types": [
             "cloze", "word_bank", "matching",
             "sentence_builder", "reading_comprehension",
@@ -68,7 +73,7 @@ SUBJECT_REGISTRY = {
     },
     "Computing": {
         "curriculum": COMPUTING_CURRICULUM,
-        "years": ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"],
+        "years": YEAR_GROUPS_1_6,
         "worksheet_types": [
             "cloze", "word_bank", "matching",
             "sentence_builder", "reading_comprehension",
@@ -78,7 +83,7 @@ SUBJECT_REGISTRY = {
     },
     "Languages": {
         "curriculum": LANGUAGES_CURRICULUM,
-        "years": ["Year 3", "Year 4", "Year 5", "Year 6"],
+        "years": YEAR_GROUPS_3_6,
         "worksheet_types": [
             "cloze", "word_bank", "matching",
             "sentence_builder", "reading_comprehension",
@@ -88,7 +93,7 @@ SUBJECT_REGISTRY = {
     },
     "RE": {
         "curriculum": RE_CURRICULUM,
-        "years": ["Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6"],
+        "years": YEAR_GROUPS_1_6,
         "worksheet_types": [
             "cloze", "word_bank", "matching",
             "sentence_builder", "reading_comprehension",
@@ -110,6 +115,7 @@ WORKSHEET_TYPE_DISPLAY = {
     "calculation_practice": "\U0001F522 Calculation Practice",
     "investigation": "\U0001F52C Investigation Planner",
     "fraction_practice": "\U0001F4D0 Fraction Practice",
+    "times_tables": "\u2716 Times Tables Drill",
 }
 
 # Map display names back to keys
