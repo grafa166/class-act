@@ -8,10 +8,21 @@ import io
 import zipfile
 import streamlit as st
 
+from anthropic import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    BadRequestError,
+    PermissionDeniedError,
+    RateLimitError,
+)
+
 from curriculum import SUBJECT_REGISTRY, WORKSHEET_TYPE_DISPLAY, WORKSHEET_TYPE_KEY_MAP
 from generators.styles import THEMES, DIFF_LEVELS, YEAR_AGES
 from llm.client import generate_worksheet_content
 from llm.prompts import get_prompt
+from llm.validation import WorksheetContentError, validate_worksheet_content
 from generators.cloze import generate_cloze_worksheet
 from generators.word_bank import generate_word_bank_worksheet
 from generators.matching import generate_matching_worksheet
@@ -924,6 +935,12 @@ def render_content_preview(content, ws_type):
             st.markdown(f"- {c}")
 
 
+def _clear_progress(progress_bar, status_text):
+    """Tidy the progress indicators away before showing an error."""
+    progress_bar.empty()
+    status_text.empty()
+
+
 def generate_for_level(ws_type_key, content, level, theme_key, objective_text,
                        extra_spacing, eal_glossary, show_answers=False):
     """Generate a single worksheet for one differentiation level."""
@@ -1150,10 +1167,11 @@ if generate_btn or _regenerating:
                 subject=params.get('subject', 'English'),
             )
 
-            if content:
-                st.session_state.generated_content[level] = content
-            else:
-                st.error(f"Failed to generate content for {level_label}. Please try again.")
+            # Check the shape before storing it. Valid JSON missing a field it
+            # needs would otherwise surface as a bare KeyError from deep inside
+            # a generator, which means nothing to a teacher.
+            validate_worksheet_content(params['ws_type_key'], content)
+            st.session_state.generated_content[level] = content
 
         progress_bar.progress(1.0)
         status_text.empty()
@@ -1162,21 +1180,51 @@ if generate_btn or _regenerating:
             st.session_state.preview_ready = True
             st.rerun()
         else:
-            st.error("No content was generated. Please check your API key and try again.")
+            st.error("No content was generated. Please try again.")
 
+    except AuthenticationError:
+        _clear_progress(progress_bar, status_text)
+        st.error("Anthropic rejected the API key.")
+        st.info(
+            "The key is missing, expired, or mistyped. Check the ANTHROPIC_API_KEY "
+            "setting — it should be the whole key, in quotes, with no spaces around it."
+        )
+    except PermissionDeniedError as e:
+        _clear_progress(progress_bar, status_text)
+        st.error("Anthropic refused the request.")
+        if "credit" in str(e).lower() or "billing" in str(e).lower():
+            st.info("Your Anthropic account is out of credit. Top up to continue.")
+        else:
+            st.info("The API key does not have permission for this model.")
+    except RateLimitError:
+        _clear_progress(progress_bar, status_text)
+        st.error("Too many requests to Anthropic in a short time.")
+        st.info("Wait a minute and try again.")
+    except BadRequestError as e:
+        _clear_progress(progress_bar, status_text)
+        st.error(f"Anthropic rejected the request: {e}")
+        # Out-of-credit arrives as a 400 rather than a 402, so the message text
+        # is the only way to tell it apart from a genuinely malformed request.
+        if "credit balance" in str(e).lower():
+            st.info("Your Anthropic account is out of credit. Top up to continue.")
+    except (APITimeoutError, APIConnectionError):
+        _clear_progress(progress_bar, status_text)
+        st.error("Could not reach Anthropic.")
+        st.info("This is usually a passing network problem. Try again in a moment.")
+    except APIStatusError as e:
+        _clear_progress(progress_bar, status_text)
+        st.error(f"Anthropic returned an error (status {e.status_code}).")
+        st.info("If this keeps happening, check status.anthropic.com.")
+    except WorksheetContentError as e:
+        _clear_progress(progress_bar, status_text)
+        st.error(f"The generated content was unusable: {e}")
     except Exception as e:
-        progress_bar.empty()
-        status_text.empty()
-        st.error(f"An error occurred: {str(e)}")
-        # Only point at the API key when the error is actually about credentials or
-        # billing — a blanket "check your key" hint sends you hunting the wrong problem.
-        message = str(e).lower()
-        if "authentication" in message or "api key" in message or "401" in message:
-            st.info("Your Anthropic API key is missing or invalid. Check the ANTHROPIC_API_KEY setting.")
-        elif "credit balance" in message or "billing" in message:
-            st.info("Your Anthropic account is out of credit. Top up to continue generating.")
-        elif "rate limit" in message or "429" in message:
-            st.info("Rate limited by the Anthropic API. Wait a moment and try again.")
+        _clear_progress(progress_bar, status_text)
+        st.error(f"An unexpected error occurred: {e}")
+        st.info(
+            "This is not a problem with your API key. If it repeats, note the "
+            "wording above — it identifies the fault."
+        )
 
 
 # Phase 2: Preview content and offer Build / Regenerate
