@@ -116,7 +116,6 @@ def generate_worksheet_content(
     prompt: str,
     model: str = DEFAULT_MODEL,
     max_tokens: int = DEFAULT_MAX_TOKENS,
-    temperature: float = 0.7,
     timeout: Optional[float] = None,
     subject: str = "English",
 ) -> dict:
@@ -133,9 +132,6 @@ def generate_worksheet_content(
         model: The Claude model to use. Defaults to claude-haiku-4-5-20251001
             for fast, cost-effective generation.
         max_tokens: Maximum number of tokens in the response. Defaults to 4096.
-        temperature: Controls randomness in generation. 0.0 = deterministic,
-            1.0 = maximum randomness. Defaults to 0.7 for creative but
-            consistent worksheet content.
         timeout: Optional request timeout in seconds. If None, uses the
             client default (60s).
         subject: The curriculum subject (e.g. "English", "Maths", "Science").
@@ -167,7 +163,6 @@ def generate_worksheet_content(
         message = client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            temperature=temperature,
             messages=[
                 {
                     "role": "user",

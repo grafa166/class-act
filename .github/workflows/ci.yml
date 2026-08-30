@@ -1,0 +1,53 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Every Monday at 08:00 UTC. The scheduled run is the point of this file:
+    # the app broke once because a dependency released a new major version and
+    # the next rebuild silently installed it. Nobody was watching. Now the
+    # weekly run notices before a teacher does.
+    - cron: "0 8 * * 1"
+
+jobs:
+  tests:
+    name: Tests (pinned dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run the test suite
+        run: python -m pytest tests/ -v
+
+  dependency-drift:
+    name: Early warning (latest dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the newest release of every dependency
+        # Deliberately ignores the version caps in requirements.txt. This job
+        # answers one question: "if we raised the caps today, would the app
+        # still work?" A failure here is not an outage -- it is notice that a
+        # dependency has moved and the caps need a considered bump.
+        run: pip install --upgrade streamlit python-docx anthropic python-dotenv pytest
+
+      - name: Show what was installed
+        run: pip list
+
+      - name: Run the test suite against the latest dependencies
+        run: python -m pytest tests/ -v

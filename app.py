@@ -1168,7 +1168,15 @@ if generate_btn or _regenerating:
         progress_bar.empty()
         status_text.empty()
         st.error(f"An error occurred: {str(e)}")
-        st.info("Please check that your Anthropic API key is set correctly in the .env file.")
+        # Only point at the API key when the error is actually about credentials or
+        # billing — a blanket "check your key" hint sends you hunting the wrong problem.
+        message = str(e).lower()
+        if "authentication" in message or "api key" in message or "401" in message:
+            st.info("Your Anthropic API key is missing or invalid. Check the ANTHROPIC_API_KEY setting.")
+        elif "credit balance" in message or "billing" in message:
+            st.info("Your Anthropic account is out of credit. Top up to continue generating.")
+        elif "rate limit" in message or "429" in message:
+            st.info("Rate limited by the Anthropic API. Wait a moment and try again.")
 
 
 # Phase 2: Preview content and offer Build / Regenerate
