@@ -63,3 +63,14 @@ jobs:
           # contributors do not see spurious failures.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python scripts/canary.py
+
+      - name: Keep the hosted app awake
+        # Streamlit Community Cloud puts an app to sleep after a spell with no
+        # visitors, and the next person to arrive gets a "wake me up" screen and
+        # a minute's wait instead of a worksheet. Visiting it on a schedule
+        # resets that timer. Never fails the job: this is a courtesy, not a test.
+        continue-on-error: true
+        run: |
+          echo "Pinging https://class-act.streamlit.app to reset the sleep timer"
+          curl -sS -L --max-time 60 -o /dev/null -w "responded with %{http_code}\n" \
+            https://class-act.streamlit.app || echo "ping did not complete — ignoring"
