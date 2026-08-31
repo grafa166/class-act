@@ -12,8 +12,26 @@ name: Daily live check
 
 on:
   schedule:
-    # 07:00 UTC daily — before the school day.
-    - cron: "0 7 * * *"
+    # Twice daily, at odd minutes, on purpose.
+    #
+    # GitHub's scheduler is best effort, not a guarantee: runs queued on the
+    # hour compete with everyone else's and are routinely delayed or dropped
+    # entirely. The first version of this file asked for 07:00 and simply never
+    # ran. Odd minutes are far less contended, and two slots mean one missed
+    # window does not cost a whole day of cover.
+    - cron: "23 7 * * *"
+    - cron: "23 15 * * *"
+  # Also run whenever the app changes, so a broken deploy is caught at once
+  # rather than waiting for the next slot.
+  push:
+    branches: [main]
+    paths:
+      - "llm/**"
+      - "generators/**"
+      - "curriculum/**"
+      - "app.py"
+      - "requirements.txt"
+      - "scripts/canary.py"
   workflow_dispatch: # lets you run it on demand from the Actions tab
 
 # One run at a time; a slow run should not overlap the next day's.
