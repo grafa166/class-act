@@ -18,6 +18,7 @@ from anthropic import (
     RateLimitError,
 )
 
+from access import check_daily_limit, check_password, record_worksheets
 from curriculum import SUBJECT_REGISTRY, WORKSHEET_TYPE_DISPLAY, WORKSHEET_TYPE_KEY_MAP
 from generators.styles import THEMES, DIFF_LEVELS, YEAR_AGES
 from llm.client import generate_worksheet_content
@@ -43,6 +44,14 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ─── Access Control ───────────────────────────────────────────────────────────
+# Nothing below this point runs until the visitor is through the door. When no
+# password is configured (running on your own machine) this passes straight
+# through, so local use stays a double-click.
+
+if not check_password():
+    st.stop()
 
 # ─── Session State Initialisation ─────────────────────────────────────────────
 
@@ -1091,6 +1100,11 @@ _regenerating = st.session_state.regenerate_requested
 if generate_btn or _regenerating:
     st.session_state.regenerate_requested = False
 
+    # Every worksheet costs the account holder money. Stop here if today's
+    # allowance is spent, before any request reaches Anthropic.
+    if not check_daily_limit():
+        st.stop()
+
     if _regenerating and st.session_state.generation_params:
         # Regeneration — reuse stored params from last generation
         params = st.session_state.generation_params
@@ -1172,6 +1186,9 @@ if generate_btn or _regenerating:
             # a generator, which means nothing to a teacher.
             validate_worksheet_content(params['ws_type_key'], content)
             st.session_state.generated_content[level] = content
+            # Count it only once it succeeded — a failed call should not eat
+            # into the day's allowance.
+            record_worksheets(1)
 
         progress_bar.progress(1.0)
         status_text.empty()
