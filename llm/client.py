@@ -28,6 +28,40 @@ DEFAULT_MAX_TOKENS = 4096
 # Request timeout in seconds
 DEFAULT_TIMEOUT = 60.0
 
+# Stop reasons that mean Claude finished saying what it had to say. Anything
+# else means the reply was cut short, and its content must not be used --
+# see _reject_incomplete().
+COMPLETE_STOP_REASONS = frozenset({"end_turn", "stop_sequence", "tool_use"})
+
+
+class TruncatedResponseError(ValueError):
+    """Claude stopped before finishing the response.
+
+    A ValueError so that callers already catching ValueError cannot let a
+    half-written worksheet through.
+    """
+
+
+def _reject_incomplete(stop_reason):
+    """Refuse a reply Claude did not finish writing.
+
+    Most truncations produce broken JSON and fail at the parser anyway. The
+    reason this check has to exist separately is the case that does not: the
+    model runs out of tokens at a point where the JSON is still well-formed.
+    Then a six-question worksheet renders with three questions and nothing
+    reports a problem. Valid JSON is not evidence of a complete answer.
+
+    `None` is accepted: some SDK versions and test doubles do not set it, and
+    failing on a missing value would block correct work.
+    """
+    if stop_reason is None or stop_reason in COMPLETE_STOP_REASONS:
+        return
+    raise TruncatedResponseError(
+        f"Claude stopped early (stop_reason={stop_reason!r}), so the response is "
+        f"incomplete and has not been used. If this is 'max_tokens', the content "
+        f"asked for is too long for the token budget."
+    )
+
 
 def _get_client() -> Anthropic:
     """
@@ -205,6 +239,9 @@ def generate_worksheet_content(
         len(response_text),
         message.stop_reason,
     )
+
+    # Checked before parsing: a truncated reply can still be valid JSON.
+    _reject_incomplete(message.stop_reason)
 
     # Parse the JSON from the response
     try:

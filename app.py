@@ -20,6 +20,7 @@ from anthropic import (
 
 from access import check_daily_limit, check_password, record_worksheets
 from curriculum import SUBJECT_REGISTRY, WORKSHEET_TYPE_DISPLAY, WORKSHEET_TYPE_KEY_MAP
+from curriculum.selection import list_objectives
 from generators.styles import THEMES, DIFF_LEVELS, YEAR_AGES
 from llm.client import generate_worksheet_content
 from llm.prompts import get_prompt
@@ -537,9 +538,28 @@ with st.sidebar:
         help="Select the specific topic",
     )
 
-    # Get objectives for display
-    objectives = curriculum_data[year_group][strand]["objectives"]
-    objective_text = objectives[0] if objectives else ""
+    # Learning objective.
+    #
+    # This used to be `objectives[0]`, regardless of the topic chosen above.
+    # Topics and objectives are two independent lists that drifted apart, so
+    # picking "How Fossils Are Formed" produced the objective about comparing
+    # and grouping rocks -- silently, on every worksheet built from a topic
+    # that was not first. Pairing them by position does not fix it either;
+    # measured across the curriculum, those pairings are wrong too.
+    #
+    # So the app no longer guesses. It shows the strand's objectives and the
+    # teacher chooses. The first one is pre-selected, which is what the app
+    # did before, so nothing changes for anyone who does not look.
+    objectives = list_objectives(subject, year_group, strand)
+    objective_text = st.selectbox(
+        "\U0001F3AF Learning Objective",
+        objectives,
+        help=(
+            "Which objective this worksheet is built on. The list is the whole "
+            "strand -- objectives are not tied to the topic above, so check "
+            "this matches the topic you picked."
+        ),
+    )
 
     # Custom Topic Override
     st.markdown("---")
