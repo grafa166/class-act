@@ -19,6 +19,7 @@ from streamlit.testing.v1 import AppTest
 import planning.scheme_intake as scheme_intake
 import planning.lesson as lesson_module
 import planning.spine as spine_module
+import planning.worksheet as worksheet_module
 from planning.scheme_intake import SchemePlanError
 from planning.lesson import LessonError
 from planning.spine import SpineError
@@ -600,3 +601,127 @@ class TestWritingTheLessons:
         assert at.session_state["plan_written_lessons"]
         next(b for b in at.button if b.label == "Plan the sequence").click().run()
         assert "plan_written_lessons" not in at.session_state
+
+
+class TestMakingTheWorksheetFromTheLesson:
+    """The headline feature, on the screen.
+
+    A worksheet made here inherits the lesson's objective and success criteria
+    word for word, and has to produce the evidence each criterion names. The
+    test that matters is the drift one: if the sheet comes back with its own
+    wording and the screen shows it anyway, the plan, the sheet and the child's
+    book stop agreeing and nothing visible would say so.
+    """
+
+    INSTRUCTION = "Write two property words for each rock in the table."
+
+    def _fake_sheet_writer(self, drift=None, fake_quote=False, seen=None):
+        """Echoes back the objective and criteria the prompt carried.
+
+        Which is the assertion: if the prompt stopped carrying them verbatim,
+        this could not answer and every test here would fail.
+        """
+        import re
+
+        def fake(content, system_prompt, **kwargs):
+            text = content if isinstance(content, str) else str(content)
+            # Read the literal JSON the coupling block hands over, which is
+            # what the model is told to copy. `rsplit` because the worksheet
+            # template above it has its own `success_criteria` in its schema.
+            objective = re.findall(r'"objective": "(.+)",$', text, re.M)[-1]
+            block = text.rsplit('"success_criteria": [', 1)[1].split("],", 1)[0]
+            criteria = re.findall(r'^\s*"(.+?)",?$', block, re.M)
+            if seen is not None:
+                seen.append({"objective": objective, "criteria": criteria})
+            return {
+                "title": "Rock Detectives",
+                "objective": drift or objective,
+                "success_criteria": criteria,
+                "sections": [
+                    {
+                        "title": "Part 1",
+                        "instructions": self.INSTRUCTION,
+                        "sentences": [{"pieces": [{"type": "text", "text": "Granite is rough."}]}],
+                    }
+                ],
+                "word_bank": {"words": ["hard", "soft", "rough"]},
+                "evidence": [
+                    {
+                        "criterion": criterion,
+                        "where": "Part 1",
+                        "quote": (
+                            "Colour in the rocks however you like best."
+                            if fake_quote
+                            else self.INSTRUCTION
+                        ),
+                        "pupil_writes": "Two property words in each row",
+                    }
+                    for criterion in criteria
+                ],
+            }
+
+        return fake
+
+    def _made(self, monkeypatch, lesson=1, **kwargs):
+        at = TestWritingTheLessons()._written(monkeypatch)
+        monkeypatch.setattr(
+            worksheet_module, "generate_structured_content",
+            self._fake_sheet_writer(**kwargs),
+        )
+        next(
+            b for b in at.button
+            if b.label == "Make the worksheet" and b.key.endswith(str(lesson))
+        ).click().run()
+        return at
+
+    def _body(self, at):
+        return " ".join(m.value for m in at.markdown)
+
+    def test_a_worksheet_can_be_made_from_a_lesson(self, monkeypatch):
+        at = self._made(monkeypatch)
+        assert not at.exception
+        assert at.session_state["plan_worksheets"]
+
+    def test_the_worksheets_objective_is_the_lessons(self, monkeypatch):
+        seen = []
+        self._made(monkeypatch, seen=seen)
+        assert seen[0]["objective"] == "Identify and name rocks by their appearance"
+
+    def test_the_worksheet_carries_the_lessons_criteria_word_for_word(self, monkeypatch):
+        seen = []
+        self._made(monkeypatch, seen=seen)
+        assert seen[0]["criteria"] == ["I can describe two rocks.", "I can group rocks."]
+
+    def test_a_drifted_objective_is_refused_and_said_out_loud(self, monkeypatch):
+        at = self._made(monkeypatch, drift="Sort rocks by how they look")
+        assert not at.exception
+        assert not at.session_state["plan_worksheets"]
+        assert any("objective" in e.value.lower() for e in at.error)
+
+    def test_a_task_that_is_not_on_the_sheet_is_refused(self, monkeypatch):
+        """The claim is checked against the sheet, not taken on trust."""
+        at = self._made(monkeypatch, fake_quote=True)
+        assert not at.exception
+        assert not at.session_state["plan_worksheets"]
+        assert any("does not appear" in e.value.lower() for e in at.error)
+
+    def test_the_screen_says_which_part_evidences_which_criterion(self, monkeypatch):
+        body = self._body(self._made(monkeypatch))
+        assert "I can describe two rocks." in body
+        assert "Part 1" in body
+
+    def test_the_worksheet_is_labelled_a_draft_not_verified(self, monkeypatch):
+        at = self._made(monkeypatch)
+        text = " ".join(c.value for c in at.caption) + self._body(at)
+        assert "check before teaching" in text.lower()
+        assert "verified" not in text.lower()
+
+    def test_a_unit_of_one_task_shape_is_flagged(self, monkeypatch):
+        """Six sheets of the same kind is one worksheet printed six times."""
+        at = self._made(monkeypatch)
+        made = at.session_state["plan_worksheets"]
+        only = next(iter(made.values()))
+        at.session_state["plan_worksheets"] = {n: only for n in (1, 2, 3)}
+        at.run()
+        assert not at.exception
+        assert any("same kind of task" in w.value.lower() for w in at.warning)

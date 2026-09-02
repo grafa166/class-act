@@ -14,7 +14,7 @@ Run things with `.venv/bin/python`. Read `/Users/graemeheerden/.claude/plans/yup
 first — that is the approved plan, including a section on what an adversarial pass already
 killed. Do not re-litigate decisions recorded there.
 
-## Done so far (on `plan-mode`, 486 tests passing, up from 221)
+## Done so far (on `plan-mode`, 560 tests passing, up from 221)
 
 1. **Fixed a live bug**: the app took `objectives[0]` for whatever topic was chosen.
    Topics and objectives are two independent lists per strand that drifted apart, so
@@ -85,6 +85,31 @@ killed. Do not re-litigate decisions recorded there.
      shared client now takes a `stream` flag and the worksheet path is untouched. Verified
      live: a three-lesson unit wrote end to end in 3m44s (61s, 92s, 66s).
 
+9. **Worksheet coupling** (`planning/worksheet.py`) — the headline feature. A worksheet is
+   built from a lesson, inherits its objective and success criteria **word for word**, and
+   has to produce the evidence each criterion names. Wired into the plan page: a kind-of-task
+   and pitched-for picker on every written lesson, then the sheet with each criterion set
+   against the task that evidences it.
+   - **The claim is checked against the sheet, not taken on trust.** Each criterion must name
+     where it is evidenced, what the child records there, and **quote the instruction** — and
+     the quote is searched for in the worksheet *with the claims stripped out*, because
+     searching the whole reply would let every quote match itself. This caught a real
+     fabrication live: a cloze sheet claimed *"Dead plants and insects decay in the soil"* was
+     the task, and that sentence appears nowhere except inside the claim.
+   - **Reading is not evidence** — a criterion whose part of the sheet has the child record
+     nothing is rejected, as is an invented criterion, a dropped one and a reworded one.
+   - **Her criteria are printed in her order**, whatever order came back, and the sheet is
+     rejected if the generator could not render it.
+   - Four live-only defects, none reachable from a test. Three were **my guard refusing
+     correct work**: a word-bank sentence stored as fragments with the gaps between them; a
+     cloze passage stored as `paragraphs`, a list of lists of pieces with no `pieces` key to
+     spot; and a gap drawn as `[hard/soft]` or `_____` rather than filled in. The fourth was
+     the model dropping `success_criteria` from word-bank sheets three runs running — now it
+     is filled in from the lesson rather than demanded, because the sheet prints hers anyway
+     and the evidence array is what actually proves the sheet was built to them.
+   - Verified live end to end seven times across word-bank, cloze and investigation sheets;
+     the last two runs made 4 of 4 with none refused.
+
 ## Decisions already made — do not reopen
 
 - **White Rose is the only locked scheme.** Maths must never be re-sequenced; the small
@@ -108,15 +133,27 @@ killed. Do not re-litigate decisions recorded there.
 
 ## What's next, in order
 
-1. **Worksheet coupling** — the headline feature, and the thing nothing else on the market
-   does. A worksheet inherits the lesson's objective and success criteria **verbatim** and
-   must produce the evidence each criterion names. Assert `worksheet.objective ==
-   lesson.objective` and that every criterion has a section producing its evidence. The
-   lesson's objective is already checked verbatim against the spine, so this is the last
-   handover in the chain — get it right and the plan, the sheet and the child's book agree.
+1. **A unit loses about one lesson in three**, and it is the lesson step, not the worksheet
+   one. Measured across seven live runs of the whole flow, from two separate causes:
+   - **The model returns malformed JSON.** Seen several times at 20–25k characters: a stray
+     `or` between two strings, a missing comma between two fields. Not truncation — the
+     truncation guard passes, `stop_reason` is clean, the JSON is simply invalid. The
+     documented fix is **structured outputs** (`output_config.format` with a JSON schema),
+     which Haiku 4.5 supports and which constrains the reply to valid JSON rather than
+     hoping for it. That is a change to the shared client that both the lesson and the
+     worksheet paths would benefit from, and it deserves its own RED→GREEN plus a live run.
+     Do **not** reach for a retry loop first — that is the "longer timeout" mistake again.
+   - **The lesson's own structural checks reject it** — timings summing to 55 in a 60-minute
+     lesson, or a word appearing in two vocabulary bands. Those checks are right and should
+     stay; what is missing is that the lesson is simply lost rather than re-asked for.
+
+   The screen already degrades honestly ("4 of 6 lessons were written"), so this is a
+   reliability problem, not a correctness one. It is top of the queue because it is what
+   stands between the teacher and a complete unit.
 2. **Word output** in the editable paragraph style: Arial, black and blue only, boxes as
    bordered paragraphs rather than tables. Reuse the low-level helpers in
-   `generators/components.py`, not the worksheet-semantic ones.
+   `generators/components.py`, not the worksheet-semantic ones. The worksheet now carries
+   which task evidences which criterion, so the document can say it too.
 3. **Amending a single lesson** (Phase 3 stage 3). Editing a spine objective currently says
    the reasons after it may no longer hold; it does not re-check them, and a taught lesson
    cannot yet be re-planned against what actually happened.
@@ -139,10 +176,20 @@ Smaller things noticed on the way, none blocking:
   dropped a lesson from the coverage record — because the fault was in how Claude read the
   instruction, and every test used a fake that returned whatever I told it to. One live
   call found it in a minute. Do this for every generation step that follows.
-  **Three for three so far**: the dropped coverage line, the coverage faked onto the
-  assessment lesson, and the connection dropped on a long request. None of the three was
-  reachable from a test, and the third was invisible on a single lesson — it only appeared
-  when a whole unit ran back to back. Run the *whole* flow, not one step of it.
+  **Seven for seven so far**: the dropped coverage line, the coverage faked onto the
+  assessment lesson, the connection dropped on a long request, and four more on the worksheet
+  coupling. None was reachable from a test, and one was invisible on a single lesson — it
+  only appeared when a whole unit ran back to back. Run the *whole* flow, not one step of it.
+- **Keep every raw reply, and read the artefact before changing anything.** Three of the four
+  worksheet defects looked identical from the error message — "the quote is not on the
+  sheet" — and had three different causes, two of which were the guard refusing correct work.
+  Guessing from the message would have fixed none of them. Write the live-run script so it
+  saves every raw reply to disk *before* parsing it — that is what made all four diagnosable,
+  and a reply that fails to parse is gone otherwise.
+- **A guard that refuses correct work is worse than no guard**, because it is invisible on a
+  green suite and only shows up as the teacher being told her worksheet is wrong. Three of
+  the four were this. But note the fourth: the same check caught a genuine invented task, so
+  the answer is to make the guard *right*, never to soften it.
 - **Check the current API guidance before changing how a call is made.** The first fix for
   the dropped connection was a longer timeout, which was wrong: the documented answer for
   a long output is to stream it. Guessing cost a live run.

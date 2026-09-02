@@ -23,7 +23,9 @@ import streamlit as st
 from access import check_password
 from curriculum import SUBJECT_REGISTRY
 from curriculum.selection import list_objectives, list_topics
+from generators.styles import DIFF_LEVELS
 from llm.client import TruncatedResponseError
+from llm.validation import WorksheetContentError
 from planning.anchors import anchor_for, is_locked, suggest_lesson_count
 from planning.scheme_intake import (
     SchemePlanError,
@@ -42,6 +44,11 @@ from planning.spine import (
     coverage_map,
     coverage_never_taught,
     generate_spine,
+)
+from planning.worksheet import (
+    WorksheetCouplingError,
+    generate_worksheet_for_lesson,
+    repeated_task_shapes,
 )
 
 st.set_page_config(page_title="Lesson Plans", page_icon="\U0001F4CB", layout="wide")
@@ -434,6 +441,14 @@ def _show_the_lessons():
     for number in sorted(written):
         _show_one_lesson(written[number])
 
+    for flag in repeated_task_shapes(
+        [st.session_state["plan_worksheets"][n]
+         for n in sorted(st.session_state.get("plan_worksheets") or {})]
+    ):
+        # A flag, not a refusal. She may have a reason, and the sequence is
+        # never changed for her.
+        st.warning(flag, icon="⚠️")
+
 
 def _show_one_lesson(lesson):
     with st.expander(f"Lesson {lesson.number} · {lesson.objective}", expanded=False):
@@ -510,6 +525,154 @@ def _show_one_lesson(lesson):
 
         if lesson.next_lesson:
             st.caption(f"Next lesson: {lesson.next_lesson}")
+
+        _the_worksheet_for(lesson)
+
+
+# ── The worksheet, built from the lesson ─────────────────────────────────────
+#
+# The headline feature. A worksheet made here inherits the lesson's objective
+# and success criteria word for word and has to produce the evidence each
+# criterion names -- so the plan, the sheet and the child's book agree.
+
+# Plain names for the ten generators. She is choosing a kind of task, not a
+# module.
+WORKSHEET_KINDS = {
+    "cloze": "Fill in the gaps",
+    "word_bank": "Word bank and sentences",
+    "matching": "Matching",
+    "sentence_builder": "Building sentences",
+    "reading_comprehension": "Reading and questions",
+    "problem_solving": "Word problems",
+    "calculation_practice": "Calculation practice",
+    "fraction_practice": "Fractions practice",
+    "times_tables": "Times tables",
+    "investigation": "Investigation planner",
+}
+
+# Where to start, per subject. A starting point only -- every kind stays on the
+# list, because the subject does not decide what a lesson needs.
+DEFAULT_KIND = {
+    "Maths": "calculation_practice",
+    "English": "cloze",
+    "Science": "investigation",
+}
+
+
+def _the_worksheet_for(lesson):
+    """Make and show the worksheet belonging to one lesson."""
+    st.divider()
+    st.markdown("**The worksheet for this lesson**")
+    st.caption(
+        "It carries this lesson's objective and success criteria word for "
+        "word, and has to produce the evidence each criterion names."
+    )
+
+    subject = st.session_state.get("plan_subject", "")
+    kinds = list(WORKSHEET_KINDS)
+    default = DEFAULT_KIND.get(subject, "word_bank")
+
+    col_kind, col_level = st.columns(2)
+    with col_kind:
+        kind = st.selectbox(
+            "Kind of task",
+            kinds,
+            index=kinds.index(default),
+            format_func=lambda key: WORKSHEET_KINDS[key],
+            key=f"plan_ws_kind_{lesson.number}",
+        )
+    with col_level:
+        level = st.selectbox(
+            "Pitched for",
+            list(DIFF_LEVELS),
+            index=list(DIFF_LEVELS).index("expected"),
+            format_func=lambda key: DIFF_LEVELS[key]["label"],
+            key=f"plan_ws_level_{lesson.number}",
+        )
+
+    if st.button(
+        "Make the worksheet", key=f"plan_make_ws_{lesson.number}"
+    ):
+        _make_the_worksheet(lesson, kind, level)
+
+    _show_the_worksheet(lesson)
+
+
+def _make_the_worksheet(lesson, kind, level):
+    """One call, then checked against the lesson before it is shown."""
+    st.session_state.setdefault("plan_worksheets", {})
+    st.session_state.setdefault("plan_worksheet_errors", {})
+    st.session_state["plan_worksheets"].pop(lesson.number, None)
+    st.session_state["plan_worksheet_errors"].pop(lesson.number, None)
+
+    written = st.session_state.get("plan_written_lessons") or {}
+    earlier = [
+        written[number].objective
+        for number in sorted(written)
+        if lesson.number is not None and number < lesson.number
+    ]
+
+    try:
+        with st.spinner(f"Making the worksheet for lesson {lesson.number}…"):
+            sheet = generate_worksheet_for_lesson(
+                lesson=lesson,
+                worksheet_type=kind,
+                subject=st.session_state.get("plan_subject", ""),
+                year_group=st.session_state.get("plan_year", ""),
+                level=level,
+                earlier_objectives=earlier,
+            )
+    except (WorksheetCouplingError, WorksheetContentError) as exc:
+        # Refused rather than shown. A sheet whose objective drifted looks
+        # completely normal on paper, which is exactly the failure.
+        st.session_state["plan_worksheet_errors"][lesson.number] = str(exc)
+        return
+    except TruncatedResponseError:
+        st.session_state["plan_worksheet_errors"][lesson.number] = (
+            "The worksheet ran out of room before it finished, so it has not "
+            "been used. Try a shorter kind of task."
+        )
+        return
+    except Exception as exc:  # noqa: BLE001 - a teacher cannot act on a traceback
+        st.session_state["plan_worksheet_errors"][lesson.number] = (
+            f"The worksheet could not be made: {exc}"
+        )
+        return
+
+    st.session_state["plan_worksheets"][lesson.number] = sheet
+
+
+def _show_the_worksheet(lesson):
+    """The sheet, and what on it evidences each criterion."""
+    error = (st.session_state.get("plan_worksheet_errors") or {}).get(lesson.number)
+    if error:
+        st.error(error, icon="\U0001F6AB")
+
+    sheet = (st.session_state.get("plan_worksheets") or {}).get(lesson.number)
+    if not sheet:
+        return
+
+    st.success(f"**{sheet.content.get('title', 'Worksheet')}**", icon="\U0001F4DD")
+    st.caption(sheet.source)
+    st.markdown(f"*Objective on the sheet* — {sheet.objective}")
+
+    # The part that makes this more than a themed activity: every criterion,
+    # and the task that produces the evidence for it.
+    st.markdown("**What on this sheet shows each criterion was met**")
+    by_criterion = {}
+    for claim in sheet.evidence:
+        by_criterion.setdefault(claim.criterion, []).append(claim)
+
+    for criterion in sheet.success_criteria:
+        claims = by_criterion.get(criterion.criterion, [])
+        st.markdown(
+            f"- **{criterion.criterion}**\n"
+            + "\n".join(
+                f"    - *{claim.where}*: {claim.quote} → the child writes "
+                f"{claim.pupil_writes}"
+                for claim in claims
+            )
+        )
 
 
 def _show_the_coverage_map(spine, coverage):
