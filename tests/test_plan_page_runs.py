@@ -17,7 +17,9 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import planning.scheme_intake as scheme_intake
+import planning.spine as spine_module
 from planning.scheme_intake import SchemePlanError
+from planning.spine import SpineError
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
 PAGE = "pages/2_Lesson_Plans.py"
@@ -64,10 +66,10 @@ def test_it_warns_against_pupil_names(page):
     assert "No names" in warnings
 
 
-def test_the_generate_button_is_not_pretending_to_work(page):
-    """A shell must not look finished."""
-    plan_it = [b for b in page.button if b.label == "Plan it"]
-    assert plan_it and plan_it[0].disabled
+def test_the_sequence_can_actually_be_planned(page):
+    """It was a disabled shell until the spine was wired in."""
+    plan_it = [b for b in page.button if b.label == "Plan the sequence"]
+    assert plan_it and not plan_it[0].disabled
 
 
 class TestMathsIsProtected:
@@ -85,14 +87,14 @@ class TestMathsIsProtected:
             "maths did not announce that White Rose is locked"
         )
 
-    def test_maths_asks_for_the_small_step_instead_of_offering_objectives(self):
+    def test_maths_asks_for_the_small_steps_instead_of_offering_objectives(self):
         at = self._on_maths()
-        assert any("small step" in t.label.lower() for t in at.text_input), (
-            "the White Rose small step input is missing"
+        assert any("small step" in t.label.lower() for t in at.text_area), (
+            "the White Rose small steps input is missing"
         )
         assert not any(
             "Objectives this unit covers" in m.label for m in at.multiselect
-        ), "maths is offering curriculum objectives — it must use the scheme's step"
+        ), "maths is offering curriculum objectives — it must use the scheme's steps"
 
     def test_maths_is_not_asked_to_paste_a_scheme_plan(self):
         """White Rose is followed step by step; there is no plan to rebuild."""
@@ -260,3 +262,181 @@ class TestReadingTheSchemePlan:
     def test_an_unchanged_plan_is_not_called_stale(self, monkeypatch):
         at = self._read_on_science(monkeypatch)
         assert not any("older version" in w.value.lower() for w in at.warning)
+
+
+class TestPlanningTheSequence:
+    """The spine on the screen.
+
+    The maths tests here are the important ones. If the locked route ever stops
+    being taken, the app starts inventing an order alongside White Rose, and it
+    would look completely normal.
+    """
+
+    SPINE = {
+        "lessons": [
+            {
+                "number": 1,
+                "objective": "Identify and name rocks by their appearance",
+                "builds_on": None,
+                "builds_on_reason": "Starting point.",
+                "covers": ["compare and group rocks by their physical properties"],
+                "assesses_outcome": False,
+            },
+            {
+                "number": 2,
+                "objective": "Group rocks by their physical properties",
+                "builds_on": 1,
+                "builds_on_reason": "needs the naming vocabulary first",
+                "covers": [],
+                "assesses_outcome": True,
+            },
+        ]
+    }
+
+    def _science(self, monkeypatch, payload=None, error=None, lessons=2):
+        calls = []
+
+        def fake_generate(content, system_prompt, **kwargs):
+            calls.append(content)
+            if error is not None:
+                raise error
+            return payload if payload is not None else self.SPINE
+
+        monkeypatch.setattr(spine_module, "generate_structured_content", fake_generate)
+        at = _page()
+        next(s for s in at.selectbox if s.label == "Subject").set_value("Science").run()
+        # Changing subject empties the objectives box, so choose one the way she
+        # does. Without this the sequence has nothing to build from.
+        picker = next(
+            m for m in at.multiselect if "Objectives this unit covers" in m.label
+        )
+        picker.set_value(picker.options[:1]).run()
+        next(n for n in at.number_input if n.label == "Lessons").set_value(lessons).run()
+        next(b for b in at.button if b.label == "Plan the sequence").click().run()
+        return at, calls
+
+    def _maths(self, monkeypatch, steps):
+        calls = []
+
+        def fake_generate(content, system_prompt, **kwargs):
+            calls.append(content)
+            raise AssertionError("maths must never reach the model")
+
+        monkeypatch.setattr(spine_module, "generate_structured_content", fake_generate)
+        at = _page()
+        next(s for s in at.selectbox if s.label == "Subject").set_value("Maths").run()
+        next(t for t in at.text_area if "small step" in t.label.lower()).set_value(steps).run()
+        next(b for b in at.button if b.label == "Plan the sequence").click().run()
+        return at, calls
+
+    def _body(self, at):
+        return " ".join(m.value for m in at.markdown)
+
+    def _objectives(self, at):
+        return [t.value for t in at.text_input if t.label.startswith("Objective for lesson")]
+
+    # ── the drafted route ────────────────────────────────────────────────────
+
+    def test_the_chain_of_objectives_appears(self, monkeypatch):
+        at, _ = self._science(monkeypatch)
+        assert not at.exception
+        assert "Identify and name rocks by their appearance" in self._objectives(at)
+
+    def test_it_says_why_each_lesson_needs_the_one_before(self, monkeypatch):
+        """The link is not the point. The reason is what she is judging."""
+        at, _ = self._science(monkeypatch)
+        captions = " ".join(c.value for c in at.caption)
+        assert "needs the naming vocabulary first" in captions
+
+    def test_the_objectives_are_hers_to_change(self, monkeypatch):
+        at, _ = self._science(monkeypatch)
+        assert self._objectives(at), "the objectives are not editable"
+
+    def test_writing_the_lessons_does_not_pretend_to_work_yet(self, monkeypatch):
+        at, _ = self._science(monkeypatch)
+        write = [b for b in at.button if b.label == "Write all the lessons"]
+        assert write and write[0].disabled
+
+    def test_a_rejected_sequence_says_so_and_shows_nothing(self, monkeypatch):
+        at, _ = self._science(
+            monkeypatch, error=SpineError("Lesson 3 builds on lesson 9.")
+        )
+        assert not at.exception
+        assert any("lesson 9" in e.value.lower() for e in at.error)
+        assert "plan_spine" not in at.session_state
+
+    def test_asking_for_more_lessons_than_came_back_is_caught(self, monkeypatch):
+        """The validator, reached through the screen rather than directly."""
+        at, _ = self._science(monkeypatch, lessons=6)
+        assert not at.exception
+        assert any("6" in e.value for e in at.error)
+
+    def test_what_the_class_struggled_with_reaches_the_request(self, monkeypatch):
+        at, calls = self._science(monkeypatch)
+        assert calls, "nothing was sent"
+
+    # ── maths ────────────────────────────────────────────────────────────────
+
+    def test_maths_never_reaches_the_model(self, monkeypatch):
+        at, calls = self._maths(
+            monkeypatch, "Represent numbers to 1,000\nPartition numbers to 1,000"
+        )
+        assert not at.exception
+        assert calls == [], "a maths sequence was sent off to be invented"
+
+    def test_the_small_steps_become_the_objectives_word_for_word(self, monkeypatch):
+        at, _ = self._maths(
+            monkeypatch, "Compare numbers to 1,000\nRepresent numbers to 1,000"
+        )
+        assert self._objectives(at) == [
+            "Compare numbers to 1,000",
+            "Represent numbers to 1,000",
+        ]
+
+    def test_maths_with_no_steps_typed_says_what_to_do(self, monkeypatch):
+        at, _ = self._maths(monkeypatch, "   ")
+        assert not at.exception
+        assert any("step" in e.value.lower() for e in at.error)
+
+    # ── the coverage map ─────────────────────────────────────────────────────
+
+    def test_a_scheme_line_no_lesson_teaches_is_shown_as_a_gap(self, monkeypatch):
+        """Her evidence to the subject leader that nothing was dropped."""
+        outcome = {}
+        at = TestReadingTheSchemePlan()._on_science(monkeypatch, outcome)
+        TestReadingTheSchemePlan()._paste(at, "Boost Y3")
+        TestReadingTheSchemePlan()._click_read(at)
+
+        monkeypatch.setattr(
+            spine_module,
+            "generate_structured_content",
+            lambda content, system_prompt, **kw: {
+                "lessons": [
+                    {
+                        "number": 1,
+                        "objective": "Identify and name rocks",
+                        "builds_on": None,
+                        "builds_on_reason": "Starting point.",
+                        "covers": [
+                            "compare and group rocks by their physical properties"
+                        ],
+                        "assesses_outcome": False,
+                    },
+                    {
+                        "number": 2,
+                        "objective": "Group rocks by property",
+                        "builds_on": 1,
+                        "builds_on_reason": "needs the naming vocabulary",
+                        "covers": [],
+                        "assesses_outcome": True,
+                    },
+                ]
+            },
+        )
+        next(n for n in at.number_input if n.label == "Lessons").set_value(2).run()
+        next(b for b in at.button if b.label == "Plan the sequence").click().run()
+
+        assert not at.exception
+        body = self._body(at)
+        assert "no lesson teaches this" in body, "a dropped coverage line is invisible"
+        assert any("not taught by any lesson" in w.value for w in at.warning)

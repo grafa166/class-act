@@ -30,6 +30,13 @@ from planning.scheme_intake import (
     UnreadableUploadError,
     read_scheme_plan,
 )
+from planning.spine import (
+    SpineError,
+    build_locked_spine,
+    coverage_map,
+    coverage_never_taught,
+    generate_spine,
+)
 
 st.set_page_config(page_title="Lesson Plans", page_icon="\U0001F4CB", layout="wide")
 
@@ -166,6 +173,198 @@ def _show_the_reading(current):
         )
 
 
+# ── The sequence ─────────────────────────────────────────────────────────────
+
+_SPINE_KEYS = ("plan_spine", "plan_spine_built_from", "plan_spine_source")
+
+
+def _what_to_build_on():
+    """The ticks and the optional note, as one line for the request.
+
+    The ticks come first deliberately: they are the route that carries no pupil
+    data at all, and they work on their own.
+    """
+    ticked = [label for label in TICKS if st.session_state.get(f"plan_tick_{label}")]
+    note = (st.session_state.get("plan_build_on") or "").strip()
+    return " · ".join(ticked + ([note] if note else []))
+
+
+def _build_the_spine(
+    anchor,
+    subject,
+    year_group,
+    lesson_count,
+    outcome,
+    objectives,
+    coverage,
+    unit_title,
+    build_on,
+    small_steps,
+    signature,
+):
+    """Draft or assemble the chain of objectives.
+
+    A mandated scheme takes the assembled route, which makes no model call, so
+    the guarantee that its order survives is structural rather than a request in
+    a prompt.
+    """
+    st.session_state.pop("plan_spine_error", None)
+    try:
+        if is_locked(anchor.subject):
+            spine = build_locked_spine(
+                small_steps.splitlines(), outcome=outcome, scheme=anchor.scheme
+            )
+        else:
+            with st.spinner("Working out the order these need to be taught in…"):
+                spine = generate_spine(
+                    subject=subject,
+                    year_group=year_group,
+                    lesson_count=lesson_count,
+                    outcome=outcome,
+                    objectives=objectives,
+                    coverage=coverage,
+                    scheme=anchor.scheme,
+                    unit_title=unit_title,
+                    build_on=build_on,
+                )
+    except SpineError as exc:
+        _forget_the_spine()
+        st.session_state["plan_spine_error"] = str(exc)
+        return
+    except TruncatedResponseError:
+        _forget_the_spine()
+        st.session_state["plan_spine_error"] = (
+            "Claude ran out of room before finishing the sequence, so nothing "
+            "has been used. Try fewer lessons."
+        )
+        return
+    except Exception as exc:  # noqa: BLE001 - a teacher cannot act on a traceback
+        _forget_the_spine()
+        st.session_state["plan_spine_error"] = f"Could not plan the sequence: {exc}"
+        return
+
+    st.session_state["plan_spine"] = spine
+    st.session_state["plan_spine_source"] = spine.source
+    st.session_state["plan_spine_built_from"] = signature
+    # Drop any objective she edited on a previous sequence: they belong to
+    # lessons that no longer exist.
+    for key in [k for k in st.session_state if k.startswith("plan_spine_objective_")]:
+        st.session_state.pop(key, None)
+
+
+def _forget_the_spine():
+    for key in _SPINE_KEYS:
+        st.session_state.pop(key, None)
+
+
+def _show_the_spine(current, coverage):
+    """The chain, editable, with the coverage it accounts for."""
+    error = st.session_state.get("plan_spine_error")
+    if error:
+        st.error(error, icon="\U0001F6AB")
+
+    spine = st.session_state.get("plan_spine")
+    if not spine:
+        return
+
+    st.caption(st.session_state.get("plan_spine_source", ""))
+
+    if st.session_state.get("plan_spine_built_from") != current:
+        st.warning(
+            "You have changed the unit since this sequence was planned, so it "
+            "is the older version. Plan it again.",
+            icon="⚠️",
+        )
+
+    edited = []
+    for lesson in spine.lessons:
+        heading = f"**Lesson {lesson.number}**"
+        if lesson.assesses_outcome:
+            heading += " · assesses the end-of-unit outcome"
+        st.markdown(heading)
+        objective = st.text_input(
+            f"Objective for lesson {lesson.number}",
+            value=lesson.objective,
+            key=f"plan_spine_objective_{lesson.number}",
+            label_visibility="collapsed",
+        )
+        if objective.strip() != lesson.objective:
+            edited.append(lesson.number)
+        if lesson.builds_on is None:
+            st.caption("Starting point — no lesson before this one.")
+        else:
+            st.caption(
+                f"Builds on lesson {lesson.builds_on} — {lesson.builds_on_reason}"
+            )
+
+    if edited:
+        # She may change an objective the later reasons were written against.
+        # Said out loud rather than left for her to notice.
+        st.info(
+            "You have changed the objective for lesson "
+            + ", ".join(str(number) for number in edited)
+            + ". The reasons above still describe what was drafted, so check "
+            "the lessons after it still follow.",
+            icon="✏️",
+        )
+
+    if coverage:
+        _show_the_coverage_map(spine, coverage)
+
+    st.divider()
+    st.button(
+        "Write all the lessons",
+        type="primary",
+        disabled=True,
+        help="Not connected yet — writing the lessons is the next piece of work.",
+        key="plan_write_lessons",
+    )
+
+
+def _show_the_coverage_map(spine, coverage):
+    """Every line the scheme named, and which lesson now teaches it.
+
+    Her evidence to the subject leader that nothing was dropped. A line no
+    lesson teaches is shown as a gap rather than left out — a map with a line
+    quietly absent is the same failure as dropping it.
+    """
+    mapping = coverage_map(spine, coverage)
+    st.markdown("**What the scheme said this unit covers, and where it now is:**")
+    st.markdown(
+        "\n".join(
+            f"- {line} — "
+            + (
+                "lesson " + ", ".join(str(n) for n in lessons)
+                if lessons
+                else "**no lesson teaches this**"
+            )
+            for line, lessons in mapping.items()
+        )
+    )
+
+    gaps = [line for line, lessons in mapping.items() if not lessons]
+    if gaps:
+        st.warning(
+            f"{len(gaps)} of {len(coverage)} things the scheme named are not "
+            "taught by any lesson in this sequence. Add a lesson, or say where "
+            "else the class covers them — the sequence is not changed for you.",
+            icon="⚠️",
+        )
+
+    assessed_only = coverage_never_taught(spine, coverage)
+    if assessed_only:
+        # The map above says the last lesson covers these. It is the only lesson
+        # that does, and it is the one that assesses the unit -- so on paper
+        # they are covered and in practice they were never taught.
+        st.warning(
+            "**Covered only by the last lesson, which is the assessment.** The "
+            "map above counts these as taught, but nothing before the "
+            "assessment teaches them:\n\n"
+            + "\n".join(f"- {line}" for line in assessed_only),
+            icon="⚠️",
+        )
+
+
 with st.sidebar:
     st.markdown("## \U0001F3EB Class Act")
     # Mirrors app.py: the automatic page menu is off, so each screen carries
@@ -226,10 +425,19 @@ if is_locked(anchor.subject):
     # For a mandated scheme the objective is the scheme's, not ours. She pastes
     # the small step; we do not offer a curriculum objective that might quietly
     # differ from what the school has agreed to teach.
-    st.text_input(
-        f"The {anchor.scheme} small step",
-        placeholder="e.g. Represent numbers to 1,000",
-        help="Typed exactly as it appears in the scheme. This becomes the objective.",
+    st.text_area(
+        f"The {anchor.scheme} small steps — one per line",
+        placeholder=(
+            "Represent numbers to 1,000\n"
+            "Partition numbers to 1,000\n"
+            "Compare numbers to 1,000"
+        ),
+        height=120,
+        help=(
+            "Typed exactly as they appear in the scheme, in the order the scheme "
+            "teaches them. These become the objectives, word for word, and "
+            "nothing here re-orders them."
+        ),
         key="plan_small_step",
     )
 else:
@@ -249,6 +457,14 @@ else:
         help="Context for the generator. Does not set the objective.",
         key="plan_topics",
     )
+    if not st.session_state.get("plan_objectives"):
+        # Changing subject empties this box, because the objectives it held
+        # belong to the subject before. Said out loud: an empty box below a
+        # subject you have just chosen looks like a screen still loading.
+        st.caption(
+            "Pick at least one — the sequence is built from these, and "
+            "changing subject clears them."
+        )
 
 # ── 3 · Bring your own scheme ────────────────────────────────────────────────
 
@@ -334,15 +550,17 @@ st.caption(
     "the box is optional."
 )
 
+TICKS = (
+    "Most were secure",
+    "Needed more modelling",
+    "Vocabulary was the barrier",
+    "Ran out of time",
+    "Didn't teach it",
+)
+
 col_ticks, col_note = st.columns(2)
 with col_ticks:
-    for label in (
-        "Most were secure",
-        "Needed more modelling",
-        "Vocabulary was the barrier",
-        "Ran out of time",
-        "Didn't teach it",
-    ):
+    for label in TICKS:
         st.checkbox(label, key=f"plan_tick_{label}")
 with col_note:
     st.text_area(
@@ -359,16 +577,56 @@ with col_note:
         icon="⚠️",
     )
 
-# ── Not wired up yet ─────────────────────────────────────────────────────────
+# ── 6 · The sequence ─────────────────────────────────────────────────────────
 
 st.divider()
-st.button(
-    "Plan it",
-    type="primary",
-    disabled=True,
-    help="Not connected yet — the generator is the next piece of work.",
-)
+st.markdown("### 6 · The sequence")
 st.caption(
-    "This screen collects what a plan needs. Generation, the lesson document "
-    "and the worksheet link are the next steps."
+    "The chain of objectives, and why each lesson needs the one before it. "
+    "This is the part worth your judgement, so it comes first and on its own — "
+    "read it, change anything you disagree with, and the lessons get written "
+    "from what you approved."
 )
+
+small_steps = st.session_state.get("plan_small_step", "")
+build_on = _what_to_build_on()
+scheme_plan = st.session_state.get("plan_scheme_plan")
+coverage = list(scheme_plan.coverage) if scheme_plan else []
+lesson_count = int(st.session_state.get("plan_lessons", 1))
+outcome = st.session_state.get("plan_outcome", "")
+
+if is_locked(anchor.subject):
+    # No model call at all. The steps she typed become the objectives, in her
+    # order. Nothing in this path is capable of re-sequencing them.
+    st.caption(
+        f"Assembled from your {anchor.scheme} steps — no sequence is generated "
+        f"for a locked scheme."
+    )
+
+signature = (
+    subject,
+    year_group,
+    lesson_count,
+    outcome.strip(),
+    tuple(chosen_objectives),
+    tuple(coverage),
+    build_on,
+    small_steps.strip(),
+)
+
+if st.button("Plan the sequence", type="primary", key="plan_build_spine"):
+    _build_the_spine(
+        anchor=anchor,
+        subject=subject,
+        year_group=year_group,
+        lesson_count=lesson_count,
+        outcome=outcome,
+        objectives=chosen_objectives,
+        coverage=coverage,
+        unit_title=scheme_plan.unit_title if scheme_plan else None,
+        build_on=build_on,
+        small_steps=small_steps,
+        signature=signature,
+    )
+
+_show_the_spine(signature, coverage)

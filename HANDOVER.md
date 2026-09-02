@@ -14,7 +14,7 @@ Run things with `.venv/bin/python`. Read `/Users/graemeheerden/.claude/plans/yup
 first — that is the approved plan, including a section on what an adversarial pass already
 killed. Do not re-litigate decisions recorded there.
 
-## Done so far (on `plan-mode`, 345 tests passing, up from 221)
+## Done so far (on `plan-mode`, 409 tests passing, up from 221)
 
 1. **Fixed a live bug**: the app took `objectives[0]` for whatever topic was chosen.
    Topics and objectives are two independent lists per strand that drifted apart, so
@@ -48,6 +48,24 @@ killed. Do not re-litigate decisions recorded there.
      her by name — never silently restored, which is how an invented line would get in.
    - **A stale reading says so.** Edit the plan after reading it and the screen says the
      coverage below is the older version. It is what she would hand a subject leader.
+7. **The unit spine** (`planning/spine.py`) — the chain of objectives, each saying which
+   earlier lesson it needs *and why*, with the objectives editable on screen before
+   anything longer is written. Plus the coverage map: every line the scheme named, and
+   which lesson now teaches it, with gaps shown rather than omitted.
+   - **Maths never reaches the model.** `build_locked_spine` assembles the spine from the
+     small steps she typed, in her order, word for word — no API call in the path at all.
+     `generate_spine` also refuses a locked subject outright, so there are two independent
+     defences; deleting the screen's route was measured to produce zero model calls.
+   - **Deterministic checks only**, all of them structural: count matches the request, the
+     numbering runs 1..n, a lesson cannot build on itself or on one that comes later, the
+     reason cannot be blank, no objective appears twice, only the last lesson assesses the
+     outcome, and no lesson may claim coverage the scheme never named.
+   - **Coverage assessed but never taught.** Second live-only defect: told every scheme
+     line had to be taught, the draft attached *"recognise that soils are made from
+     rocks"* to a final lesson about grouping rocks. Dropped in substance while the map
+     vouched for it. The prompt now says an honest gap beats a false entry, and
+     `coverage_never_taught()` catches a line whose only lesson is the assessment.
+     Verified live twice: soil now gets its own lesson.
 
 ## Decisions already made — do not reopen
 
@@ -72,24 +90,28 @@ killed. Do not re-litigate decisions recorded there.
 
 ## What's next, in order
 
-1. **Unit spine generation** — the chain of objectives with `builds_on_lesson`, for the
-   teacher to approve before anything else is written. The coverage record is waiting for
-   it in `st.session_state["plan_scheme_plan"]`, and the spine has to account for every
-   line in it: that is the coverage map she shows the subject leader.
-2. **Full lesson generation at the agreed depth.** This is the thing the teacher
+1. **Full lesson generation at the agreed depth.** This is the thing the teacher
    rejected v1 for. Not an outline of what a lesson should contain — what actually
    happens: what's on the board, the words to say, the questions and expected answers,
    what to watch for, where the other adult stands. Plus **vocabulary in three bands**
    (everyone / expected / stretch), misconceptions to expect, and assessment that names
-   an example of work that has *not* met the criterion.
-3. **Worksheet coupling** — the headline feature. A worksheet inherits the lesson's
+   an example of work that has *not* met the criterion. The spine's objective is carried
+   in **verbatim** — it is what she approved, and it is what the worksheet later inherits.
+   One API call per lesson, then assemble.
+2. **Worksheet coupling** — the headline feature. A worksheet inherits the lesson's
    objective and success criteria verbatim and must produce the evidence each criterion
    names. Assert `worksheet.objective == lesson.objective` and that every criterion has
    a section producing its evidence.
-4. **Word output** in the editable paragraph style.
+3. **Word output** in the editable paragraph style.
 
-The **"Plan it"** button is still deliberately disabled — it turns on with step 1, not
-before. A shell must not look finished.
+The **"Write all the lessons"** button is deliberately disabled — it turns on with step 1,
+not before. A shell must not look finished.
+
+Two smaller things noticed while wiring the spine, neither blocking:
+- **Amending a single lesson** (Phase 3 stage 3) is not built. Editing a spine objective
+  says the reasons after it may no longer hold; it does not re-check them.
+- **Changing subject empties the objectives picker** — Streamlit drops a selection that is
+  not in the new options. The screen now says so rather than looking like it is loading.
 
 ## Working rules that have already earned their place here
 
