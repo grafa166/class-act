@@ -146,6 +146,34 @@ def _extract_json_from_text(text: str) -> dict:
     )
 
 
+def generate_structured_content(
+    content,
+    system_prompt: str,
+    model: str = DEFAULT_MODEL,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+    timeout: Optional[float] = None,
+) -> dict:
+    """Send content to Claude and return the parsed JSON it replies with.
+
+    The shared engine underneath both worksheet and planning generation. It was
+    already generic -- only the name, the logging and the system prompt were
+    worksheet-specific -- so this exposes it rather than duplicating the error
+    handling, the truncation check and the JSON extraction a second time.
+
+    Args:
+        content: Either a prompt string, or a list of content blocks. The list
+            form is what lets a planning request carry a PDF or a photograph of
+            a scheme of work alongside its instructions; put the document and
+            image blocks *before* the instruction text.
+        system_prompt: The system prompt for this kind of request.
+
+    Raises:
+        TruncatedResponseError: Claude did not finish the response.
+        json.JSONDecodeError: The reply was not usable JSON.
+    """
+    return _request_json(content, system_prompt, model, max_tokens, timeout)
+
+
 def generate_worksheet_content(
     prompt: str,
     model: str = DEFAULT_MODEL,
@@ -182,6 +210,28 @@ def generate_worksheet_content(
         anthropic.RateLimitError: If the API rate limit is exceeded.
         json.JSONDecodeError: If the response cannot be parsed as JSON.
     """
+    return _request_json(
+        prompt,
+        (
+            f"You are an expert UK primary school teacher and curriculum designer "
+            f"specialising in {subject}. "
+            "You create engaging, age-appropriate educational content aligned to the "
+            "UK National Curriculum. You ALWAYS respond with valid JSON only - no "
+            "additional text, explanations, or markdown formatting outside the JSON. "
+            "Your JSON output must be precise and match the exact schema requested."
+        ),
+        model,
+        max_tokens,
+        timeout,
+    )
+
+
+def _request_json(content, system_prompt, model, max_tokens, timeout):
+    """One request, one parsed JSON reply.
+
+    Every caller goes through here so the truncation check, the error logging
+    and the JSON extraction exist in exactly one place.
+    """
     client = _get_client()
 
     # Override timeout if specified
@@ -191,26 +241,14 @@ def generate_worksheet_content(
             timeout=timeout,
         )
 
-    logger.info("Sending worksheet generation request to Claude (model=%s, subject=%s)", model, subject)
+    logger.info("Sending request to Claude (model=%s)", model)
 
     try:
         message = client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            system=(
-                f"You are an expert UK primary school teacher and curriculum designer "
-                f"specialising in {subject}. "
-                "You create engaging, age-appropriate educational content aligned to the "
-                "UK National Curriculum. You ALWAYS respond with valid JSON only - no "
-                "additional text, explanations, or markdown formatting outside the JSON. "
-                "Your JSON output must be precise and match the exact schema requested."
-            ),
+            messages=[{"role": "user", "content": content}],
+            system=system_prompt,
         )
     except APITimeoutError as e:
         logger.error("Claude API request timed out: %s", e)
@@ -257,9 +295,6 @@ def generate_worksheet_content(
             e.pos,
         )
 
-    logger.info(
-        "Successfully generated worksheet content (keys: %s)",
-        list(result.keys()),
-    )
+    logger.info("Parsed JSON from Claude (keys: %s)", list(result.keys()))
 
     return result
