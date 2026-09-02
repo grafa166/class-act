@@ -1,3 +1,10 @@
+[client]
+# Streamlit's automatic page menu names the entry script after its filename,
+# which would show a teacher a link called "app". Switched off so each screen
+# can be linked by name instead -- see the st.page_link calls in app.py and in
+# pages/2_Lesson_Plans.py.
+showSidebarNavigation = false
+
 [theme]
 primaryColor = "#1565C0"
 backgroundColor = "#FFFFFF"

@@ -500,7 +500,16 @@ st.markdown("""
 # ─── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("## \U0001F3EB Lesson Planner")
+    st.markdown("## \U0001F3EB Class Act")
+
+    # Streamlit's automatic page menu labels the entry script by its filename,
+    # which would show a teacher a link called "app". The automatic menu is
+    # switched off in .streamlit/config.toml and these two links replace it, so
+    # the screens are named for what they do. Renaming app.py would have meant
+    # touching the launcher, the CI check and three test files -- a lot of
+    # churn for a label.
+    st.page_link("app.py", label="Worksheets", icon="\U0001F4DD")
+    st.page_link("pages/2_Lesson_Plans.py", label="Lesson Plans", icon="\U0001F4CB")
     st.markdown("---")
 
     # Subject
