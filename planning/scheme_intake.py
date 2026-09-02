@@ -19,16 +19,29 @@ Three ways in, because a photocopy in a folder is the realistic case:
 PDFs and photographs are handed to Claude as document and image blocks rather
 than run through a text extractor. A scanned or photographed plan has no text
 layer, so a parser returns nothing and reports it as an empty document -- which
-looks exactly like a plan with no coverage in it.
+looks exactly like a plan with no coverage in it. A Word document is the one
+exception: it has a real text layer, and the API has no block type for it.
 
 Publisher content is never reproduced by this app. She supplies the page; we
 extract the coverage statements and unit title, which are largely National
 Curriculum wording anyway, and build the teaching around them.
+
+`read_scheme_plan` is the whole journey in one call -- what she gave us, what
+was sent, what came back, and what is worth her eye before it is built on.
 """
 
 import base64
+import io
 import os
+import zipfile
 from dataclasses import dataclass, field
+
+from docx import Document
+from docx.opc.exceptions import PackageNotFoundError
+from docx.table import Table
+from docx.text.paragraph import Paragraph
+
+from llm.client import generate_structured_content
 
 # Anthropic caps a request at 32 MB including the base64 expansion, which is
 # ~4/3 of the raw bytes. 20 MB of source leaves comfortable room for the prompt
@@ -140,23 +153,103 @@ def blocks_for_upload(filename, data):
             },
         }]
 
+    if ext == ".docx":
+        return [{"type": "text", "text": _text_from_docx(filename, data)}]
+
     if ext in _TEXT_TYPES:
         return [{"type": "text", "text": data.decode("utf-8", errors="replace")}]
 
     raise UnreadableUploadError(
         f"Cannot read a {ext.lstrip('.') or 'file'} file. "
-        "Paste the text, or upload a PDF, a photograph, or a plain text file."
+        "Paste the text, or upload a Word document, a PDF, a photograph, or a "
+        "plain text file."
     )
+
+
+def _text_from_docx(filename, data):
+    """Read a Word document the way it is laid out on the page.
+
+    Medium-term plans are tables, so two things matter beyond pulling the words
+    out. **Row grouping**: a cell torn from its row loses which lesson it
+    belonged to. **Document order**: paragraphs and tables are interleaved, and
+    reading all the paragraphs and then all the tables would detach a term
+    heading from the units under it -- and the order units are taught in is one
+    of the things she is accountable for.
+
+    So this walks the body in order rather than using `document.paragraphs`,
+    which only returns the top-level ones and skips every table.
+    """
+    try:
+        document = Document(io.BytesIO(data))
+    except (PackageNotFoundError, zipfile.BadZipFile) as exc:
+        # A .docx is a zip. Bytes that are not one raise BadZipFile straight out
+        # of the standard library before python-docx has an opinion, so both
+        # have to be caught -- almost always an old .doc renamed, or a
+        # part-downloaded file.
+        raise UnreadableUploadError(
+            f"{filename} is not a Word document this can open. Open it in Word "
+            "and save it as .docx or PDF, or paste the text instead."
+        ) from exc
+
+    lines = []
+    for element in document.element.body.iterchildren():
+        tag = element.tag.rsplit("}", 1)[-1]
+        if tag == "p":
+            text = Paragraph(element, document).text.strip()
+            if text:
+                lines.append(text)
+        elif tag == "tbl":
+            for row in Table(element, document).rows:
+                lines.extend(_row_line(row))
+
+    if not lines:
+        # An empty extraction is indistinguishable downstream from a plan that
+        # covers nothing, so it has to fail here, by name.
+        raise UnreadableUploadError(
+            f"{filename} has no readable text in it. If the plan is a scan or a "
+            "picture inside the document, upload it as a PDF or a photograph "
+            "instead — Claude can read those."
+        )
+    return "\n".join(lines)
+
+
+def _row_line(row):
+    """One table row as one line, or nothing if the row is empty."""
+    cells, previous = [], None
+    for cell in row.cells:
+        text = cell.text.strip()
+        # A merged cell is returned once per column it spans.
+        if text and text != previous:
+            cells.append(text)
+        previous = text
+    return [" | ".join(cells)] if cells else []
+
+
+# The fidelity instruction, at the strongest position in the request. A model
+# reading a half-legible photocopy is under real pressure to tidy it up, and a
+# coverage line it invented looks identical on screen to one the school wrote --
+# and would be defended to a subject leader as the school's own plan.
+EXTRACTION_SYSTEM_PROMPT = (
+    "You transcribe school planning documents for the teacher who has to follow "
+    "them. You report only what the document in front of you says. You never add "
+    "coverage that is not there, never complete a partial list, and never improve "
+    "the wording. Where the page is unreadable you leave that entry out rather "
+    "than guessing at it. You reply with JSON only, and no commentary."
+)
 
 
 def build_extraction_prompt(scheme, subject, year_group):
     """Ask for the scheme's coverage, and nothing beyond it.
 
-    Two instructions carry the weight. **Do not invent** -- an added coverage
+    Three instructions carry the weight. **Do not invent** -- an added coverage
     line looks identical to a real one on the screen and would be defended to a
-    subject leader as the school's own plan. And **flag rather than fix** -- a
-    vague statement is reported as vague, not quietly rewritten into something
-    teachable, because the rewrite is a judgement the teacher should see.
+    subject leader as the school's own plan. **Flag rather than fix** -- a vague
+    statement is reported as vague, not quietly rewritten into something
+    teachable, because the rewrite is a judgement the teacher should see. And
+    **flagging is not removing**: measured against the live API on 2026-09-02,
+    "flag a vague entry in the 'vague' list" was read as an instruction to move
+    it there, so a whole lesson's coverage disappeared off the record while the
+    extraction looked clean. A flagged line has to be in both lists.
     """
     return (
         f"You are reading a {year_group} {subject} unit from the {scheme} scheme "
@@ -174,8 +267,11 @@ def build_extraction_prompt(scheme, subject, year_group):
         '  "vague": ["any coverage entry that is a statement rather than '
         'something a child could be observed doing"]\n'
         "}\n\n"
-        "Copy coverage wording across verbatim. Flag a vague entry in the "
-        "'vague' list; do not rewrite it in 'coverage'."
+        "Copy coverage wording across verbatim. Every line the unit says it "
+        "covers goes in 'coverage', including the vague ones — 'vague' repeats "
+        "those lines so they can be looked at, and is never somewhere to move a "
+        "line out of 'coverage' to. A vague line appears in both lists, "
+        "unchanged."
     )
 
 
@@ -255,3 +351,107 @@ def vague_coverage_items(coverage):
                 "as written.",
             ))
     return flagged
+
+
+@dataclass(frozen=True)
+class SchemeReading:
+    """One reading of the scheme: what it says, and what to look at.
+
+    `flagged` is advisory in both directions -- nothing here rejects a unit, and
+    every entry carries a reason so she can disagree with it. `dropped` is the
+    opposite: lines the extraction read off the page and then left out of the
+    coverage, which is the one thing that must never happen quietly. `source`
+    exists so the screen can say which page this came off, since the coverage
+    list is what she would hand a subject leader.
+    """
+
+    plan: SchemePlan
+    flagged: list = field(default_factory=list)
+    dropped: list = field(default_factory=list)
+    source: str = ""
+
+
+def read_scheme_plan(scheme, subject, year_group, pasted_text="", uploads=()):
+    """Read what she gave us into a checked coverage record.
+
+    Args:
+        uploads: `(filename, bytes)` pairs. A printed medium-term plan is two
+            sides of A4 more often than one, so several are allowed.
+
+    Raises:
+        UnreadableUploadError: a file we cannot pass on as it stands.
+        SchemePlanError: nothing was given, or what came back is not usable as
+            a coverage record.
+        TruncatedResponseError, json.JSONDecodeError: from the model call.
+    """
+    content = []
+    filenames = []
+    for filename, data in uploads:
+        content.extend(blocks_for_upload(filename, data))
+        filenames.append(filename)
+
+    pasted = (pasted_text or "").strip()
+    if pasted:
+        content.append({"type": "text", "text": pasted})
+
+    if not content:
+        # Checked before the request, not after: an empty call costs money and
+        # comes back with an invented unit, because the model still answers.
+        raise SchemePlanError(
+            "Nothing to read. Paste the unit page, or upload the plan."
+        )
+
+    # Source material first, instruction last -- the documented ordering for
+    # documents and images, and the model attends to them better that way.
+    content.append({
+        "type": "text",
+        "text": build_extraction_prompt(scheme, subject, year_group),
+    })
+
+    payload = generate_structured_content(content, EXTRACTION_SYSTEM_PROMPT)
+    plan = validate_scheme_plan(payload)
+    by_extraction = _clean_list(payload.get("vague"))
+
+    return SchemeReading(
+        plan=plan,
+        flagged=_flag_coverage(plan.coverage, by_extraction),
+        dropped=[item for item in by_extraction if item not in plan.coverage],
+        source=_describe_source(filenames, bool(pasted)),
+    )
+
+
+def _flag_coverage(coverage, flagged_by_extraction):
+    """Coverage worth a second look, from both checks that exist.
+
+    The word check reads a sentence; the extraction read the whole page, so it
+    catches lines the word list cannot -- *"use the correct terms"* has a child
+    verb in it and still says nothing observable. But it may only point at lines
+    that are actually in the coverage: a flag against something she cannot see
+    on screen is unanswerable, and an invented one would look identical to a
+    real one. Anything it names that is *not* in the coverage is a different
+    problem, and comes back as `dropped` rather than as a flag.
+    """
+    flagged = list(vague_coverage_items(coverage))
+    already = {item for item, _ in flagged}
+
+    for item in flagged_by_extraction:
+        if item in coverage and item not in already:
+            flagged.append((
+                item,
+                "Read off the page as a statement rather than something a child "
+                "could be observed doing.",
+            ))
+            already.add(item)
+    return flagged
+
+
+def _describe_source(filenames, was_pasted):
+    """What this reading came off, in the teacher's words."""
+    parts = list(filenames)
+    if was_pasted:
+        parts.append("the text you pasted")
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0]
+    return f"{', '.join(parts[:-1])} and {parts[-1]}"
