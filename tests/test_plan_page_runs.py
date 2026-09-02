@@ -17,8 +17,10 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import planning.scheme_intake as scheme_intake
+import planning.lesson as lesson_module
 import planning.spine as spine_module
 from planning.scheme_intake import SchemePlanError
+from planning.lesson import LessonError
 from planning.spine import SpineError
 
 APP = Path(__file__).resolve().parent.parent / "app.py"
@@ -352,10 +354,10 @@ class TestPlanningTheSequence:
         at, _ = self._science(monkeypatch)
         assert self._objectives(at), "the objectives are not editable"
 
-    def test_writing_the_lessons_does_not_pretend_to_work_yet(self, monkeypatch):
+    def test_the_lessons_can_be_written_from_it(self, monkeypatch):
         at, _ = self._science(monkeypatch)
         write = [b for b in at.button if b.label == "Write all the lessons"]
-        assert write and write[0].disabled
+        assert write and not write[0].disabled
 
     def test_a_rejected_sequence_says_so_and_shows_nothing(self, monkeypatch):
         at, _ = self._science(
@@ -440,3 +442,161 @@ class TestPlanningTheSequence:
         body = self._body(at)
         assert "no lesson teaches this" in body, "a dropped coverage line is invisible"
         assert any("not taught by any lesson" in w.value for w in at.warning)
+
+
+def _lesson_payload(objective, minutes=60):
+    """The smallest lesson that passes every check, for a given objective."""
+    def step(mins):
+        return {
+            "name": "Modelling",
+            "minutes": mins,
+            "on_the_board": "Two rocks and the property words",
+            "teacher_says": "Watch me pick one word for this rock.",
+            "questions": [{"ask": "Which word fits?", "expect": "rough"}],
+            "children_do": "Talk to a partner and agree a word",
+            "watch_for": [{"wrong": "They say 'nice'", "respond": "Point at the word bank"}],
+            "adults": "TA on the back table",
+        }
+
+    half = minutes // 2
+    return {
+        "objective": objective,
+        "success_criteria": [
+            {"criterion": "I can describe two rocks.", "evidence": "comparison table"},
+            {"criterion": "I can group rocks.", "evidence": "sorted rocks in books"},
+        ],
+        "vocabulary": {
+            "everyone": ["hard", "soft"],
+            "expected": ["grainy"],
+            "stretch": ["permeable"],
+            "guidance": "Teach the everyday word, then name the technical one.",
+        },
+        "steps": [step(half), step(minutes - half)],
+        "misconceptions": [
+            {"misconception": "Heavier means harder", "why": "both feel physical",
+             "address": "Compare chalk with granite"}
+        ],
+        "assessment": {
+            "look_for": "A heading naming a property",
+            "not_yet_example": "Rocks grouped under 'nice ones'",
+        },
+        "adaptations": {
+            "eal": "Word bank with photographs",
+            "send": "Start from two very different rocks",
+            "stretch": "Test permeability with a pipette",
+        },
+        "resources": [{"item": "Rock samples", "quantity": "6 sets of 4"}],
+        "next_lesson": "Testing hardness",
+    }
+
+
+class TestWritingTheLessons:
+    """The lessons themselves, written from the sequence she approved.
+
+    The test that matters most is the edited-objective one. If a lesson is
+    written from the drafted objective rather than the one she changed, the
+    approval step is decoration and the plan, the worksheet and the child's book
+    stop agreeing — with nothing on screen showing it.
+    """
+
+    def _fake_writer(self, failures=None, calls=None):
+        """Echoes back whatever objective the prompt asked for.
+
+        Which is itself the assertion: if the prompt stopped carrying the
+        objective, this could not answer, and every test here would fail.
+        """
+        failures = failures or {}
+
+        def fake(content, system_prompt, **kwargs):
+            text = content if isinstance(content, str) else str(content)
+            objective = text.split("improve it:\n  ", 1)[1].split("\n", 1)[0]
+            if calls is not None:
+                calls.append(objective)
+            number = len(calls or []) or 1
+            if number in failures:
+                raise failures[number]
+            return _lesson_payload(objective)
+
+        return fake
+
+    def _written(self, monkeypatch, edits=None, failures=None, calls=None):
+        at, _ = TestPlanningTheSequence()._science(monkeypatch)
+        monkeypatch.setattr(
+            lesson_module,
+            "generate_structured_content",
+            self._fake_writer(failures=failures, calls=calls),
+        )
+        for number, text in (edits or {}).items():
+            next(
+                t for t in at.text_input
+                if t.label == f"Objective for lesson {number}"
+            ).set_value(text).run()
+        next(b for b in at.button if b.label == "Write all the lessons").click().run()
+        return at
+
+    def _body(self, at):
+        return " ".join(m.value for m in at.markdown)
+
+    def test_the_lessons_are_written(self, monkeypatch):
+        at = self._written(monkeypatch)
+        assert not at.exception
+        assert len(at.session_state["plan_written_lessons"]) == 2
+
+    def test_the_lesson_shows_what_actually_happens(self, monkeypatch):
+        """Not an outline. The words, the questions, the wrong answer."""
+        body = self._body(self._written(monkeypatch))
+        assert "Watch me pick one word for this rock." in body
+        assert "expect: rough" in body
+        assert "Point at the word bank" in body
+
+    def test_the_three_vocabulary_bands_are_shown(self, monkeypatch):
+        body = self._body(self._written(monkeypatch))
+        assert "Everyone leaves with" in body and "Stretch" in body
+
+    def test_it_shows_work_that_has_not_met_the_criterion(self, monkeypatch):
+        body = self._body(self._written(monkeypatch))
+        assert "nice ones" in body
+
+    def test_it_is_labelled_as_a_draft_not_as_verified(self, monkeypatch):
+        at = self._written(monkeypatch)
+        captions = " ".join(c.value for c in at.caption)
+        assert "AI-drafted" in captions
+        assert "verified" not in captions.lower()
+
+    def test_the_objective_she_edited_is_the_one_written_from(self, monkeypatch):
+        """The whole point of the approval step."""
+        calls = []
+        self._written(
+            monkeypatch,
+            edits={1: "Name rocks by how they feel"},
+            calls=calls,
+        )
+        assert calls[0] == "Name rocks by how they feel"
+
+    def test_an_objective_edited_to_nothing_stops_before_any_writing(self, monkeypatch):
+        calls = []
+        at = self._written(monkeypatch, edits={1: "   "}, calls=calls)
+        assert not at.exception
+        assert calls == []
+        assert any("objective" in e.value.lower() for e in at.error)
+
+    def test_a_failure_part_way_keeps_what_was_written_and_says_what_is_missing(
+        self, monkeypatch
+    ):
+        """Three good lessons are worth having. A unit that looks complete and
+        is not is the failure this screen exists to avoid."""
+        at = self._written(
+            monkeypatch,
+            failures={2: LessonError("The lesson came back with a different objective")},
+            calls=[],
+        )
+        assert not at.exception
+        assert len(at.session_state["plan_written_lessons"]) == 1
+        assert any("lesson 2" in w.value.lower() for w in at.warning)
+
+    def test_replanning_the_sequence_drops_lessons_from_the_old_one(self, monkeypatch):
+        """They belong to objectives that no longer exist."""
+        at = self._written(monkeypatch)
+        assert at.session_state["plan_written_lessons"]
+        next(b for b in at.button if b.label == "Plan the sequence").click().run()
+        assert "plan_written_lessons" not in at.session_state

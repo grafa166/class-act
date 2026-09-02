@@ -26,7 +26,7 @@ Nothing here judges whether the teaching is good. That is shown to the teacher,
 side by side and editable, and labelled "AI-drafted — check before teaching".
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from llm.client import generate_structured_content
 
@@ -352,6 +352,43 @@ def coverage_never_taught(spine, coverage):
     return [
         line for line in coverage if line in assessed and line not in taught_earlier
     ]
+
+
+def approved_spine(spine, objectives):
+    """The spine as she edited it, which is the one the lessons are written from.
+
+    Without this the approval step is decoration: she would change a sentence on
+    screen and the lesson would still be written from the one she rejected.
+
+    Only the wording changes. The chain, the coverage and which lesson assesses
+    the outcome are the sequence she already accepted -- editing an objective is
+    rewording a lesson, not re-deciding the unit.
+
+    Args:
+        objectives: `{lesson number: text}`. Absent numbers keep their draft.
+    """
+    lessons = []
+    for lesson in spine.lessons:
+        objective = str(objectives.get(lesson.number, lesson.objective)).strip()
+        if not objective:
+            raise SpineError(f"Lesson {lesson.number} has no objective on it.")
+        lessons.append(replace(lesson, objective=objective))
+
+    seen = {}
+    for lesson in lessons:
+        key = " ".join(lesson.objective.lower().split())
+        if key in seen:
+            raise SpineError(
+                f"Lessons {seen[key]} and {lesson.number} now have the same "
+                f"objective."
+            )
+        seen[key] = lesson.number
+
+    return UnitSpine(
+        lessons=lessons,
+        outcome=spine.outcome,
+        source=f"{spine.source} Objectives as you approved them.",
+    )
 
 
 def build_locked_spine(steps, outcome, scheme="White Rose"):

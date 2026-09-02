@@ -14,7 +14,7 @@ Run things with `.venv/bin/python`. Read `/Users/graemeheerden/.claude/plans/yup
 first — that is the approved plan, including a section on what an adversarial pass already
 killed. Do not re-litigate decisions recorded there.
 
-## Done so far (on `plan-mode`, 409 tests passing, up from 221)
+## Done so far (on `plan-mode`, 486 tests passing, up from 221)
 
 1. **Fixed a live bug**: the app took `objectives[0]` for whatever topic was chosen.
    Topics and objectives are two independent lists per strand that drifted apart, so
@@ -66,6 +66,24 @@ killed. Do not re-litigate decisions recorded there.
      vouched for it. The prompt now says an honest gap beats a false entry, and
      `coverage_never_taught()` catches a line whose only lesson is the assessment.
      Verified live twice: soil now gets its own lesson.
+8. **The lessons themselves** (`planning/lesson.py`) — at the depth she rejected v1 for.
+   Every step carries what is on the board, the words to say, the questions with the answers
+   to expect, what the children do, the common wrong answer and how to respond, and where
+   the other adult is. Plus vocabulary in three bands, misconceptions, resources with
+   quantities, adaptations, and an assessment naming work that has **not** met the criterion.
+   - **The objective is hers, word for word.** Sent in and checked on the way back, exactly.
+     `approved_spine()` applies her on-screen edits *before* the lessons are written — without
+     it the approval step is decoration. Written one lesson per call, in sequence, each
+     knowing what came before and what is still to come.
+   - **Structural checks only**: timings sum to the lesson she actually has, 2–5 criteria each
+     naming evidence, effort-not-evidence criteria rejected, all three vocabulary bands present
+     and no word in two of them, an adaptation may not announce a different objective.
+     A failure part-way keeps the lessons already written and says which are missing.
+   - **Streaming, not a longer timeout.** Third live-only defect: at this depth a lesson runs
+     past the 60-second client default, and raising the timeout only moved the failure to the
+     server closing the connection. Anthropic's guidance is to stream a long output; the
+     shared client now takes a `stream` flag and the worksheet path is untouched. Verified
+     live: a three-lesson unit wrote end to end in 3m44s (61s, 92s, 66s).
 
 ## Decisions already made — do not reopen
 
@@ -90,28 +108,24 @@ killed. Do not re-litigate decisions recorded there.
 
 ## What's next, in order
 
-1. **Full lesson generation at the agreed depth.** This is the thing the teacher
-   rejected v1 for. Not an outline of what a lesson should contain — what actually
-   happens: what's on the board, the words to say, the questions and expected answers,
-   what to watch for, where the other adult stands. Plus **vocabulary in three bands**
-   (everyone / expected / stretch), misconceptions to expect, and assessment that names
-   an example of work that has *not* met the criterion. The spine's objective is carried
-   in **verbatim** — it is what she approved, and it is what the worksheet later inherits.
-   One API call per lesson, then assemble.
-2. **Worksheet coupling** — the headline feature. A worksheet inherits the lesson's
-   objective and success criteria verbatim and must produce the evidence each criterion
-   names. Assert `worksheet.objective == lesson.objective` and that every criterion has
-   a section producing its evidence.
-3. **Word output** in the editable paragraph style.
+1. **Worksheet coupling** — the headline feature, and the thing nothing else on the market
+   does. A worksheet inherits the lesson's objective and success criteria **verbatim** and
+   must produce the evidence each criterion names. Assert `worksheet.objective ==
+   lesson.objective` and that every criterion has a section producing its evidence. The
+   lesson's objective is already checked verbatim against the spine, so this is the last
+   handover in the chain — get it right and the plan, the sheet and the child's book agree.
+2. **Word output** in the editable paragraph style: Arial, black and blue only, boxes as
+   bordered paragraphs rather than tables. Reuse the low-level helpers in
+   `generators/components.py`, not the worksheet-semantic ones.
+3. **Amending a single lesson** (Phase 3 stage 3). Editing a spine objective currently says
+   the reasons after it may no longer hold; it does not re-check them, and a taught lesson
+   cannot yet be re-planned against what actually happened.
 
-The **"Write all the lessons"** button is deliberately disabled — it turns on with step 1,
-not before. A shell must not look finished.
-
-Two smaller things noticed while wiring the spine, neither blocking:
-- **Amending a single lesson** (Phase 3 stage 3) is not built. Editing a spine objective
-  says the reasons after it may no longer hold; it does not re-check them.
+Smaller things noticed on the way, none blocking:
 - **Changing subject empties the objectives picker** — Streamlit drops a selection that is
   not in the new options. The screen now says so rather than looking like it is loading.
+- **A whole unit takes a few minutes** — one call per lesson, roughly a minute or two each.
+  The screen shows which lesson it is on. Nothing is cached between runs.
 
 ## Working rules that have already earned their place here
 
@@ -125,6 +139,13 @@ Two smaller things noticed while wiring the spine, neither blocking:
   dropped a lesson from the coverage record — because the fault was in how Claude read the
   instruction, and every test used a fake that returned whatever I told it to. One live
   call found it in a minute. Do this for every generation step that follows.
+  **Three for three so far**: the dropped coverage line, the coverage faked onto the
+  assessment lesson, and the connection dropped on a long request. None of the three was
+  reachable from a test, and the third was invisible on a single lesson — it only appeared
+  when a whole unit ran back to back. Run the *whole* flow, not one step of it.
+- **Check the current API guidance before changing how a call is made.** The first fix for
+  the dropped connection was a longer timeout, which was wrong: the documented answer for
+  a long output is to stream it. Guessing cost a live run.
 - **Verify claims against the code before repeating them.** A Codex review asserted
   three things about this repo; all three needed checking, and one was a misreading.
 - **`app.py` stays structurally untouched.** No refactor. It has almost no coverage and

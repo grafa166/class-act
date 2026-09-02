@@ -19,6 +19,7 @@ import pytest
 import planning.spine as spine_module
 from planning.spine import (
     SPINE_SYSTEM_PROMPT,
+    approved_spine,
     SpineError,
     UnitSpine,
     build_locked_spine,
@@ -233,6 +234,52 @@ class TestCoverageAssessedButNeverTaught:
         would be noise, not a finding."""
         spine = _validate(spine_of(1, {1: {"covers": [COVERAGE[0]]}}), count=1, coverage=COVERAGE)
         assert coverage_never_taught(spine, COVERAGE) == []
+
+
+class TestWhatSheApproved:
+    """She edits the objectives on screen; the lessons are written from those.
+
+    Without this the whole approval step is decoration — she would change a
+    sentence, and the lesson would be written from the one she rejected.
+    """
+
+    def test_an_edited_objective_replaces_the_drafted_one(self):
+        spine = _validate(spine_of(3))
+        approved = approved_spine(spine, {2: "Group rocks by how they feel"})
+        assert approved.lessons[1].objective == "Group rocks by how they feel"
+
+    def test_the_ones_she_left_alone_are_untouched(self):
+        spine = _validate(spine_of(3))
+        approved = approved_spine(spine, {2: "Group rocks by how they feel"})
+        assert approved.lessons[0].objective == spine.lessons[0].objective
+
+    def test_the_chain_and_the_coverage_survive_an_edit(self):
+        """She is changing the wording, not re-deciding the sequence."""
+        spine = _validate(spine_of(3, {2: {"covers": ["rocks"]}}))
+        approved = approved_spine(spine, {2: "Group rocks by how they feel"})
+        assert approved.lessons[1].builds_on == 1
+        assert approved.lessons[1].covers == ["rocks"]
+        assert approved.lessons[-1].assesses_outcome
+
+    def test_an_objective_edited_to_nothing_is_refused(self):
+        spine = _validate(spine_of(3))
+        with pytest.raises(SpineError, match="2"):
+            approved_spine(spine, {2: "   "})
+
+    def test_editing_one_into_a_copy_of_another_is_refused(self):
+        spine = _validate(spine_of(3))
+        with pytest.raises(SpineError):
+            approved_spine(spine, {3: "Objective for lesson 2"})
+
+    def test_no_edits_at_all_gives_back_what_was_drafted(self):
+        spine = _validate(spine_of(3))
+        assert [lsn.objective for lsn in approved_spine(spine, {}).lessons] == [
+            lsn.objective for lsn in spine.lessons
+        ]
+
+    def test_it_says_the_objectives_are_hers(self):
+        spine = _validate(spine_of(3))
+        assert "you" in approved_spine(spine, {2: "Something else"}).source.lower()
 
 
 class TestMathsIsNeverResequenced:

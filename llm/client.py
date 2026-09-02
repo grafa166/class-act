@@ -152,6 +152,7 @@ def generate_structured_content(
     model: str = DEFAULT_MODEL,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     timeout: Optional[float] = None,
+    stream: bool = False,
 ) -> dict:
     """Send content to Claude and return the parsed JSON it replies with.
 
@@ -166,12 +167,18 @@ def generate_structured_content(
             a scheme of work alongside its instructions; put the document and
             image blocks *before* the instruction text.
         system_prompt: The system prompt for this kind of request.
+        stream: Receive the reply as it is written rather than in one piece.
+            Set it for anything with a long output or a high token budget --
+            a long non-streaming request gets its connection closed by the
+            server, which is what happened to lesson generation on 2026-09-02.
+            The reply is still assembled and returned whole; nothing above this
+            function sees a stream.
 
     Raises:
         TruncatedResponseError: Claude did not finish the response.
         json.JSONDecodeError: The reply was not usable JSON.
     """
-    return _request_json(content, system_prompt, model, max_tokens, timeout)
+    return _request_json(content, system_prompt, model, max_tokens, timeout, stream)
 
 
 def generate_worksheet_content(
@@ -226,11 +233,16 @@ def generate_worksheet_content(
     )
 
 
-def _request_json(content, system_prompt, model, max_tokens, timeout):
+def _request_json(content, system_prompt, model, max_tokens, timeout, stream=False):
     """One request, one parsed JSON reply.
 
     Every caller goes through here so the truncation check, the error logging
     and the JSON extraction exist in exactly one place.
+
+    Streaming changes only how the reply arrives. `get_final_message()` hands
+    back the same assembled message a plain request would have returned, so
+    everything below this point -- the truncation check, the JSON extraction,
+    the error handling -- is shared and identical.
     """
     client = _get_client()
 
@@ -241,15 +253,26 @@ def _request_json(content, system_prompt, model, max_tokens, timeout):
             timeout=timeout,
         )
 
-    logger.info("Sending request to Claude (model=%s)", model)
+    logger.info(
+        "Sending request to Claude (model=%s, stream=%s)", model, stream
+    )
 
     try:
-        message = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": content}],
-            system=system_prompt,
-        )
+        if stream:
+            with client.messages.stream(
+                model=model,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": content}],
+                system=system_prompt,
+            ) as response:
+                message = response.get_final_message()
+        else:
+            message = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": content}],
+                system=system_prompt,
+            )
     except APITimeoutError as e:
         logger.error("Claude API request timed out: %s", e)
         raise

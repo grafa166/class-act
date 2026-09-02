@@ -30,8 +30,14 @@ from planning.scheme_intake import (
     UnreadableUploadError,
     read_scheme_plan,
 )
+from planning.lesson import (
+    LessonError,
+    generate_lesson,
+    lowered_objective_flags,
+)
 from planning.spine import (
     SpineError,
+    approved_spine,
     build_locked_spine,
     coverage_map,
     coverage_never_taught,
@@ -175,7 +181,18 @@ def _show_the_reading(current):
 
 # ── The sequence ─────────────────────────────────────────────────────────────
 
-_SPINE_KEYS = ("plan_spine", "plan_spine_built_from", "plan_spine_source")
+_SPINE_KEYS = (
+    "plan_spine",
+    "plan_spine_built_from",
+    "plan_spine_source",
+    # Lessons belong to the sequence they were written from. Keeping them across
+    # a re-plan would show lessons for objectives that no longer exist. Named
+    # apart from the "plan_lessons" count widget: one key cannot mean two
+    # things, and popping a widget's key deletes what the teacher typed.
+    "plan_written_lessons",
+    "plan_written_error",
+    "plan_written_expected",
+)
 
 
 def _what_to_build_on():
@@ -243,6 +260,7 @@ def _build_the_spine(
         st.session_state["plan_spine_error"] = f"Could not plan the sequence: {exc}"
         return
 
+    _forget_the_spine()
     st.session_state["plan_spine"] = spine
     st.session_state["plan_spine_source"] = spine.source
     st.session_state["plan_spine_built_from"] = signature
@@ -277,6 +295,7 @@ def _show_the_spine(current, coverage):
         )
 
     edited = []
+    edited_objectives = {}
     for lesson in spine.lessons:
         heading = f"**Lesson {lesson.number}**"
         if lesson.assesses_outcome:
@@ -288,6 +307,9 @@ def _show_the_spine(current, coverage):
             key=f"plan_spine_objective_{lesson.number}",
             label_visibility="collapsed",
         )
+        # What she has on screen right now, which is what the lessons are
+        # written from -- not what was drafted.
+        edited_objectives[lesson.number] = objective
         if objective.strip() != lesson.objective:
             edited.append(lesson.number)
         if lesson.builds_on is None:
@@ -312,13 +334,182 @@ def _show_the_spine(current, coverage):
         _show_the_coverage_map(spine, coverage)
 
     st.divider()
-    st.button(
-        "Write all the lessons",
-        type="primary",
-        disabled=True,
-        help="Not connected yet — writing the lessons is the next piece of work.",
-        key="plan_write_lessons",
+    st.markdown("### 7 · The lessons")
+    st.caption(
+        "Written one at a time from the objectives above, so each knows what "
+        "came before it and what is still to come. A minute or two per "
+        "lesson, so leave it running."
     )
+    if st.button("Write all the lessons", type="primary", key="plan_write_lessons"):
+        _write_the_lessons(spine, edited_objectives)
+    _show_the_lessons()
+
+
+def _write_the_lessons(spine, edited_objectives):
+    """Write every lesson of the sequence, one call at a time.
+
+    One call per lesson because a unit of six would not fit in one reply, and a
+    reply cut short at a tidy point parses perfectly and renders a short lesson.
+
+    A failure part-way keeps the lessons already written -- three good lessons
+    are worth having -- but says plainly which ones are missing, because a unit
+    that looks complete and is not is the failure this whole screen exists to
+    avoid.
+    """
+    st.session_state.pop("plan_written_error", None)
+    st.session_state["plan_written_lessons"] = {}
+
+    try:
+        approved = approved_spine(spine, edited_objectives)
+    except SpineError as exc:
+        st.session_state["plan_written_error"] = str(exc)
+        return
+
+    scheme_plan = st.session_state.get("plan_scheme_plan")
+    written = {}
+    progress = st.progress(0.0, text="Writing lesson 1…")
+
+    for position, lesson in enumerate(approved.lessons, 1):
+        progress.progress(
+            (position - 1) / len(approved.lessons),
+            text=f"Writing lesson {lesson.number} of {len(approved.lessons)}…",
+        )
+        try:
+            written[lesson.number] = generate_lesson(
+                spine=approved,
+                number=lesson.number,
+                subject=st.session_state.get("plan_subject", ""),
+                year_group=st.session_state.get("plan_year", ""),
+                lesson_minutes=int(st.session_state.get("plan_minutes", 60)),
+                coverage=lesson.covers,
+                build_on=_what_to_build_on(),
+                outcome=st.session_state.get("plan_outcome", ""),
+            )
+        except LessonError as exc:
+            st.session_state["plan_written_error"] = (
+                f"Lesson {lesson.number} could not be written: {exc}"
+            )
+            break
+        except TruncatedResponseError:
+            st.session_state["plan_written_error"] = (
+                f"Lesson {lesson.number} ran out of room before it finished, so "
+                f"it has not been used. Try a shorter lesson length."
+            )
+            break
+        except Exception as exc:  # noqa: BLE001 - a teacher cannot act on a traceback
+            st.session_state["plan_written_error"] = (
+                f"Lesson {lesson.number} could not be written: {exc}"
+            )
+            break
+
+    progress.empty()
+    st.session_state["plan_written_lessons"] = written
+    st.session_state["plan_written_expected"] = len(approved.lessons)
+
+
+def _show_the_lessons():
+    """The written lessons, and an honest account of any that are missing."""
+    error = st.session_state.get("plan_written_error")
+    written = st.session_state.get("plan_written_lessons") or {}
+
+    if error:
+        st.error(error, icon="\U0001F6AB")
+
+    if not written:
+        return
+
+    expected = st.session_state.get("plan_written_expected", len(written))
+    if len(written) < expected:
+        missing = [n for n in range(1, expected + 1) if n not in written]
+        st.warning(
+            f"{len(written)} of {expected} lessons were written. Nothing exists "
+            f"for lesson{'s' if len(missing) != 1 else ''} "
+            + ", ".join(str(n) for n in missing)
+            + " — the unit is incomplete.",
+            icon="⚠️",
+        )
+
+    st.caption("AI-drafted — check before teaching.")
+
+    for number in sorted(written):
+        _show_one_lesson(written[number])
+
+
+def _show_one_lesson(lesson):
+    with st.expander(f"Lesson {lesson.number} · {lesson.objective}", expanded=False):
+        st.markdown(f"**Objective** — {lesson.objective}")
+        if lesson.builds_on:
+            st.caption(
+                f"Builds on lesson {lesson.builds_on} — {lesson.builds_on_reason}"
+            )
+
+        st.markdown("**Success criteria, and what shows a child met them**")
+        st.markdown(
+            "\n".join(
+                f"- {c.criterion} — *{c.evidence}*" for c in lesson.success_criteria
+            )
+        )
+
+        vocab = lesson.vocabulary
+        st.markdown("**Vocabulary, in three bands**")
+        st.markdown(
+            f"- **Everyone leaves with**: {', '.join(vocab.everyone)}\n"
+            f"- **Expected**: {', '.join(vocab.expected)}\n"
+            f"- **Stretch**: {', '.join(vocab.stretch)}\n\n{vocab.guidance}"
+        )
+
+        st.markdown("**The lesson, step by step**")
+        for step in lesson.steps:
+            st.markdown(f"**{step.minutes} min · {step.name}**")
+            lines = [
+                f"- *On the board*: {step.on_the_board}",
+                f"- *You say*: {step.teacher_says}",
+            ]
+            lines += [
+                f"- *Ask*: {q.ask} → expect: {q.expect}" for q in step.questions
+            ]
+            lines.append(f"- *Children*: {step.children_do}")
+            lines += [
+                f"- *Watch for*: {w.wrong} → {w.respond}" for w in step.watch_for
+            ]
+            if step.adults:
+                lines.append(f"- *Other adult*: {step.adults}")
+            st.markdown("\n".join(lines))
+
+        st.markdown("**Misconceptions to expect**")
+        st.markdown(
+            "\n".join(
+                f"- {m['misconception']}"
+                + (f" — {m['address']}" if m["address"] else "")
+                for m in lesson.misconceptions
+            )
+        )
+
+        st.markdown("**Assessment**")
+        st.markdown(
+            f"- *Look for*: {lesson.assessment.look_for}\n"
+            f"- *Not yet met looks like*: {lesson.assessment.not_yet_example}"
+        )
+
+        st.markdown("**Same objective, different route in**")
+        st.markdown(
+            "\n".join(
+                f"- **{name.upper() if name != 'stretch' else 'Stretch'}**: {text}"
+                for name, text in lesson.adaptations.items()
+            )
+        )
+        for where, reason in lowered_objective_flags(lesson.adaptations):
+            # An adaptation changes how a child reaches the objective, never
+            # which objective they are reaching.
+            st.warning(f"{where}\n\n{reason}", icon="⚠️")
+
+        st.markdown("**Resources**")
+        st.markdown(
+            "\n".join(f"- {r['quantity']} — {r['item']}" for r in lesson.resources)
+        )
+
+        if lesson.next_lesson:
+            st.caption(f"Next lesson: {lesson.next_lesson}")
 
 
 def _show_the_coverage_map(spine, coverage):
@@ -507,7 +698,7 @@ if anchor.teacher_supplies_content and not is_locked(anchor.subject):
 
 st.markdown("### 4 · Shape of the unit")
 
-col_scope, col_weeks, col_lessons = st.columns(3)
+col_scope, col_weeks, col_lessons, col_minutes = st.columns(4)
 with col_scope:
     scope = st.radio(
         "Plan",
@@ -530,6 +721,17 @@ with col_lessons:
         value=suggested if scope == "A whole unit" else 1,
         help=f"Suggested: {suggested}. Six is not a rule -- override freely.",
         key="plan_lessons",
+    )
+with col_minutes:
+    # The step timings are checked against this, so a plan cannot come back
+    # needing seventy minutes of a sixty-minute slot.
+    st.number_input(
+        "Minutes per lesson",
+        min_value=20,
+        max_value=120,
+        value=60,
+        step=5,
+        key="plan_minutes",
     )
 
 st.text_input(
