@@ -414,6 +414,36 @@ Pick up at step 1 of "What's next".
      corpus says is that they *would* fire on 7 of the 14 refusals ever recorded;
      what the flow says so far is that the family they answer is the rarer one.
      Keep running it, and check whether a refusal carried lines before crediting it.
+   - 🚨 **MEASURED 2026-09-04, AND THE ANSWER IS NULL: the lines buy nothing that
+     can be seen.** The whole corpus was swept for refusals that would carry lines
+     — 50 worksheet replies, 154 evidence claims, 12 refused, **9 of those carrying
+     lines** — and every one of the 9 was repaired twice against the real API: once
+     with the refusal as it read *before* the lines existed, once as it reads now.
+     Same attempt, same prompt, same schema, one call each.
+     **Control (no lines): 6 of 9 repaired. With the lines: 5 of 9.**
+     Artefacts in `live-runs/2026-09-04-172232-replay-offered-lines/`.
+   - ⚠️ **What that does and does not establish.** It does **not** show the lines are
+     harmful — 9 paired samples, one call per arm, is far too noisy to separate 5
+     from 6, and two arms differing by one case is nothing. What it does show is that
+     **there is no measured benefit**, which is exactly what the entry above asked
+     for before crediting them. ⚠️ **Do not write these up as a success anywhere.**
+     Either measure them properly — several samples per arm, which is affordable
+     because the corpus supplies the failures for free — or take them out.
+   - 🔑 **The sweep that found the 9 has to be kept, and until now was not.** The
+     handover cites "87 claims", "37 replies, 114 claims" and "78 of 78" — all from
+     ad-hoc scripts that were thrown away, so **none of it is re-derivable**. The
+     rule says sweep the corpus before adding a guard; that is not a thing to rewrite
+     each time. ⚠️ **One methodological limit to carry:** the sweep rebuilds the
+     lesson *from the sheet*, so the objective and criteria always match by
+     construction and the invented/dropped/reworded-criterion refusals **cannot
+     appear**. It measures the evidence-quote family only, which is why it counts 12
+     refusals where the earlier sweep counted 14.
+   - 🔑 **A wrong guess, corrected by reading the artefact.** One case had the control
+     accepted and the lines refused, and the offered line looked like the culprit — a
+     whole activity welded into one blob, mostly blanks. Reading the reply refuted it:
+     the model never copied the offered line at all, and the sheet came back missing
+     `categories` and `activities` entirely. That is **open item 2** (a repair quietly
+     rewriting the sheet), not a fault in the offer.
    - ⚠️ **The lesson lost on the second run is an old defect, not a new one**: refused
      at 70 minutes, told exactly 10 had to come out, and the repair came back at 65.
      That is the "repair overshoots the arithmetic" family already recorded at
@@ -558,14 +588,32 @@ Pick up at step 1 of "What's next".
      without first deleting the app **permanently** costs the ability to
      administer or even delete it. Deploying off a side branch would have left
      exactly that landmine.
-   - 🚨 **THE APP MAY ALREADY EXIST — do not assume this is a fresh deploy.** A
-     commit on `main` from 2026-08-31 (`Keep the hosted app awake`) names a live
-     address, **`class-act.streamlit.app`**, and says the public URL was verified.
-     ⚠️ **Whether it is still live cannot be established from outside**: an app
-     name that never existed returns byte-identical responses (303 to the same
-     auth URL; `/healthz` answers `{"status":"ok"}` for both, because that is the
-     platform, not the app). **The control refutes the probe** — do not report the
-     app as absent on the strength of a curl. Only signing in settles it.
+   - 🚨 **THE APP ALREADY EXISTED AND SHE WAS ALREADY USING IT.** Graeme, 2026-09-04:
+     *"she already has the link, the old one she's been using."* So this was never a
+     fresh deploy — it is a **live app with a real user on it**, and the merge
+     changed the code under her. Treat `main` as production from now on.
+   - 🔑 **How to prove the app exists without signing in — and how NOT to.** HTTP
+     probes are useless here: an app name that has never existed returns
+     byte-identical responses to the real one (303 to the same auth URL; `/healthz`
+     answers `{"status":"ok"}` for both, because that is the platform, not the app).
+     ⚠️ **The control refuted the probe** — I nearly reported "cannot tell" as a
+     fact about the world. What *does* settle it is **`gh api repos/<owner>/<repo>/hooks`**:
+     an active `share.streamlit.io/hook` webhook on `push` proves an app is connected.
+     And **`hooks/<id>/deliveries`** shows whether Streamlit was actually told about a
+     given push, with its response code. That is the whole deploy trigger, visible
+     from the command line.
+   - ✅ **Verified for the merge (2026-09-04):** delivery at 16:12:50Z, `status=OK 200`
+     — so the rebuild was triggered. ⚠️ **That proves it was TOLD, not that the build
+     succeeded**; the build log needs his sign-in. The remaining check is to open the
+     link and look for the planner in the sidebar.
+   - ✅ **Both screens run clean in a clean environment built from `requirements.txt`
+     alone**, no API key and no password, on Streamlit 1.63 — re-verified after the
+     merge, with a deliberately broken page as the control to prove the check can see
+     a crash. ⚠️ **Run the plan page THROUGH `app.py` and `switch_page`, never as its
+     own entrypoint**: a page opened in isolation has no sibling pages and
+     `st.page_link("app.py")` raises. That is the harness, not a defect — and it is
+     already documented in `tests/test_plan_page_runs.py`, which I failed to read
+     first and briefly took for a broken screen.
    - ⚠️ **The scheduled keep-awake ping has never worked.** Today's run logged
      `responded with 303` then `ping did not complete — ignoring`. It is
      `continue-on-error`, so it has been green throughout. Worth fixing once the
@@ -589,11 +637,17 @@ Pick up at step 1 of "What's next".
    real fault instead. ⚠️ Do not build it as a refusal without measuring first — a sheet
    that legitimately adds a task must not be refused for it.
 
-3. **No live coverage of six of the ten worksheet types.** Every live run so far uses
-   Science, so only word bank, cloze, matching and investigation have ever been generated
-   against the real API. The other six schemas are derived from their prompts and
-   generators and checked against the fixtures — but nothing has proved a real model can
-   satisfy one. `scripts/live_run.py` would need an English or Maths unit to find out.
+3. **No live coverage of six of the ten worksheet types — in MY testing.** Measured
+   2026-09-04 across every saved artefact: word bank 16, cloze 23, investigation 16,
+   matching 7, and **zero** for reading comprehension, sentence builder, times tables,
+   calculation practice, fraction practice and problem solving. Every live run uses the
+   same Science unit, and the subject is hardcoded in `scripts/live_run.py` **on purpose**
+   — the comment says so — because changing it breaks comparability of the loss rate.
+   ⚠️ **This is a statement about the corpus, not about production.** The teacher has been
+   using the hosted app for worksheets, so she may well have generated those types
+   successfully; her usage is not in `live-runs/`. Do not tell anyone those types "don't
+   work" — nothing has shown that. What is true is that nothing *I* have run proves a
+   real model can satisfy their schemas.
 
 4. **Amending a single lesson** (Phase 3 stage 3). Editing a spine objective currently says
    the reasons after it may no longer hold; it does not re-check them, and a taught lesson
