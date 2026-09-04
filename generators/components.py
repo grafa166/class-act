@@ -10,20 +10,43 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import nsdecls
 from docx.oxml import parse_xml
 
-from generators.styles import FONT_NAME, COLOURS, WORD_TYPES, THEMES, DIFF_LEVELS
+from generators.styles import (
+    BLUE_FILL_HEX,
+    BLUE_HEX,
+    COLOURS,
+    DIFF_LEVELS,
+    FONT_NAME,
+    RULE_HEX,
+    THEMES,
+    WORD_TYPES,
+)
 
 
 # ─── Low-Level Helpers ─────────────────────────────────────────────────────────
 
 
-def set_run_font(run, font_name=FONT_NAME, size=Pt(14), bold=False, italic=False, colour=None):
-    """Apply consistent font formatting to a run."""
-    run.font.name = font_name
+def set_run_font(run, font_name=None, size=Pt(14), bold=False, italic=False, colour=None):
+    """Size, weight and colour for a run. The typeface is the document's.
+
+    `font_name` defaults to None, meaning *inherit* -- the run says nothing
+    about the typeface and takes it from the document's Normal style, which
+    `create_base_document` sets once.
+
+    It used to name the font on every run, several hundred times per
+    worksheet. Two things follow from not doing that. The teacher can change
+    the font in one place, which is what the 2026-09-01 decision asked for.
+    And select-all-and-change-the-font works for her in Word, instead of
+    appearing to do nothing because every run overrides the selection.
+    """
+    if font_name:
+        run.font.name = font_name
     run.font.size = size
     run.font.bold = bold
     run.font.italic = italic
     if colour:
         run.font.color.rgb = colour
+    if not font_name:
+        return
     rPr = run._element.get_or_add_rPr()
     rFonts = parse_xml(
         f'<w:rFonts {nsdecls("w")} w:ascii="{font_name}" w:hAnsi="{font_name}" w:cs="{font_name}"/>'
@@ -126,8 +149,12 @@ def set_no_spacing(paragraph):
 # ─── Document Setup ────────────────────────────────────────────────────────────
 
 
-def create_base_document(extra_spacing=False):
-    """Create a new Document with standard page margins and default font."""
+def create_base_document(extra_spacing=False, font=FONT_NAME):
+    """A new document with the page margins and the one typeface.
+
+    The font is set on `Normal` and nowhere else, so it is one setting
+    rather than one per run.
+    """
     doc = Document()
 
     for section in doc.sections:
@@ -137,11 +164,11 @@ def create_base_document(extra_spacing=False):
         section.right_margin = Cm(2)
 
     style = doc.styles['Normal']
-    style.font.name = FONT_NAME
+    style.font.name = font
     style.font.size = Pt(14)
     rPr = style.element.get_or_add_rPr()
     rFonts = parse_xml(
-        f'<w:rFonts {nsdecls("w")} w:ascii="{FONT_NAME}" w:hAnsi="{FONT_NAME}" w:cs="{FONT_NAME}"/>'
+        f'<w:rFonts {nsdecls("w")} w:ascii="{font}" w:hAnsi="{font}" w:cs="{font}"/>'
     )
     existing = rPr.findall(f'{{{rPr.nsmap["w"]}}}rFonts')
     for e in existing:
@@ -220,7 +247,7 @@ def add_learning_objective(doc, objective, theme_key='classic'):
     set_table_full_width(table)
     remove_table_borders(table)
     cell = table.cell(0, 0)
-    set_cell_shading(cell, 'F5F5F5')
+    set_cell_shading(cell, BLUE_FILL_HEX)
     set_cell_borders(cell, theme['accent'], sz=8)
     set_cell_padding(cell, top=80, bottom=80, left=150, right=150)
 
@@ -232,8 +259,13 @@ def add_learning_objective(doc, objective, theme_key='classic'):
     set_run_font(r2, size=Pt(11), italic=True, colour=COLOURS['grey_text'])
 
 
-def add_colour_key(doc, level='expected', word_types_to_show=None):
-    """Add a colour/symbol key legend."""
+def add_symbol_key(doc, level='expected', word_types_to_show=None):
+    """The key to the marks: one symbol and one label per word type.
+
+    Was `add_colour_key`, and there are no colours left in it. A name that says
+    otherwise is the kind of false label this project has been bitten by
+    before -- the next person reads the name, not the body.
+    """
     if word_types_to_show is None:
         word_types_to_show = ['time', 'adjective', 'verb', 'noun']
         if level != 'developing':
@@ -265,7 +297,7 @@ def add_colour_key(doc, level='expected', word_types_to_show=None):
 
 
 def add_instructions(doc, text, level='expected'):
-    """Add instruction text with colour key."""
+    """Add instruction text with the symbol key."""
     diff = DIFF_LEVELS[level]
 
     spacer = doc.add_paragraph()
@@ -278,11 +310,11 @@ def add_instructions(doc, text, level='expected'):
     run = p.add_run(text)
     set_run_font(run, size=Pt(diff['font_size'] - 2), italic=True, colour=COLOURS['grey_text'])
 
-    add_colour_key(doc, level)
+    add_symbol_key(doc, level)
 
 
 def add_section_header(doc, section_number, title, theme_key='classic'):
-    """Add a themed, coloured section header bar."""
+    """Add a themed section header bar."""
     theme = THEMES[theme_key]
 
     spacer = doc.add_paragraph()
@@ -328,7 +360,7 @@ def add_reminder_box(doc, text, theme_key='classic'):
 
 def add_word_bank(doc, word_bank_data, level='expected'):
     """
-    Add a categorised word bank with colour-coded boxes.
+    Add a categorised word bank, each category marked with its symbol.
 
     word_bank_data: list of dicts with keys:
         - word_type: str (key into WORD_TYPES)
@@ -547,7 +579,7 @@ def add_eal_glossary_space(doc):
     set_table_full_width(table)
     remove_table_borders(table)
     cell = table.cell(0, 0)
-    set_cell_borders(cell, 'BDBDBD', sz=8)
+    set_cell_borders(cell, RULE_HEX, sz=8)
     set_cell_padding(cell, top=100, bottom=200, left=150, right=150)
 
     p = cell.paragraphs[0]
@@ -602,7 +634,7 @@ def add_matching_table(doc, pairs, level='expected'):
     headers = ['Term', '', 'Definition']
     for i, header in enumerate(headers):
         cell = table.cell(0, i)
-        set_cell_shading(cell, 'E0E0E0')
+        set_cell_shading(cell, RULE_HEX)
         set_cell_padding(cell, top=60, bottom=60, left=80, right=80)
         p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -642,7 +674,14 @@ def add_matching_table(doc, pairs, level='expected'):
 
 
 def _add_word_card_row(doc, parts, font_size):
-    """Add a single row of colour-coded word cards."""
+    """A row of word cards, each marked with the kind of word it is.
+
+    The card used to print the word and nothing else, with the word type
+    carried entirely by the fill -- the one place in this file where colour
+    was the *only* carrier. Retiring the colours without putting the symbol on
+    the card would not have restyled the sheet; it would have deleted the
+    thing a child sorts by.
+    """
     if not parts:
         return
     table = doc.add_table(rows=1, cols=len(parts))
@@ -663,7 +702,7 @@ def _add_word_card_row(doc, parts, font_size):
         p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         set_no_spacing(p)
-        run = p.add_run(part['part'])
+        run = p.add_run(f'{wt["symbol"]} {part["part"]}')
         set_run_font(run, size=Pt(font_size), bold=True, colour=wt['text'])
 
 
@@ -717,7 +756,7 @@ def add_matching_answer_table(doc, pairs, level='expected'):
     headers = ['Term', '', 'Correct Match']
     for i, header in enumerate(headers):
         cell = table.cell(0, i)
-        set_cell_shading(cell, 'C8E6C9')
+        set_cell_shading(cell, BLUE_FILL_HEX)
         set_cell_padding(cell, top=60, bottom=60, left=80, right=80)
         p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -861,13 +900,14 @@ def add_comprehension_questions(doc, questions, level='expected', show_answers=F
     is_dev = level == 'developing'
     font_size = diff['font_size']
 
-    # Question type visual coding
+    # The badge says what kind of question it is, in words. It used to say it
+    # in colour as well, in five colours nobody can tell apart photocopied.
     TYPE_LABELS = {
-        'retrieval': ('Find and Copy', 'E8F5E9', '2E7D32'),
-        'inference': ('Think and Infer', 'E3F2FD', '1565C0'),
-        'vocabulary': ('Word Meaning', 'FFF8E1', 'F57F17'),
-        'author_intent': ("Author's Choice", 'F3E5F5', '7B1FA2'),
-        'evaluation': ('Your Opinion', 'FCE4EC', 'C62828'),
+        'retrieval': ('Find and Copy', BLUE_FILL_HEX, BLUE_HEX),
+        'inference': ('Think and Infer', BLUE_FILL_HEX, BLUE_HEX),
+        'vocabulary': ('Word Meaning', BLUE_FILL_HEX, BLUE_HEX),
+        'author_intent': ("Author's Choice", BLUE_FILL_HEX, BLUE_HEX),
+        'evaluation': ('Your Opinion', BLUE_FILL_HEX, BLUE_HEX),
     }
 
     for q in questions:

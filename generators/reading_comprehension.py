@@ -7,6 +7,7 @@ Children read a passage and answer tiered comprehension questions.
 """
 
 import io
+from generators.styles import FONT_NAME
 from generators.components import (
     create_base_document,
     add_title_area,
@@ -36,6 +37,7 @@ def generate_reading_comprehension_worksheet(
     extra_spacing: bool = False,
     eal_glossary: bool = False,
     show_answers: bool = False,
+    font: str = FONT_NAME,
 ) -> io.BytesIO:
     """
     Generate a reading comprehension worksheet as a Word document.
@@ -59,7 +61,7 @@ def generate_reading_comprehension_worksheet(
         BytesIO buffer containing the .docx file
     """
     # 1. Create the base document with standard margins and font
-    doc = create_base_document(extra_spacing=extra_spacing)
+    doc = create_base_document(extra_spacing=extra_spacing, font=font)
 
     # 2. Add the themed title area with name/date fields
     subtitle = _SUBTITLES.get(level, _SUBTITLES['expected'])
