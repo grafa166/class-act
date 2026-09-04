@@ -23,10 +23,19 @@ import streamlit as st
 from access import check_password
 from curriculum import SUBJECT_REGISTRY
 from curriculum.selection import list_objectives, list_topics
+from generators.lesson_plan import (
+    LessonPlanError,
+    lesson_plan_bytes,
+    lesson_plan_filename,
+)
 from generators.styles import DIFF_LEVELS
 from llm.client import TruncatedResponseError
 from llm.validation import WorksheetContentError
 from planning.anchors import anchor_for, is_locked, suggest_lesson_count
+from planning.worksheet_document import (
+    build_worksheet_document,
+    worksheet_filename,
+)
 from planning.scheme_intake import (
     SchemePlanError,
     UnreadableUploadError,
@@ -527,6 +536,77 @@ def _show_one_lesson(lesson):
             st.caption(f"Next lesson: {lesson.next_lesson}")
 
         _the_worksheet_for(lesson)
+        _the_document_for(lesson)
+
+
+# ── The plan as a document she can edit ──────────────────────────────────────
+#
+# Arial, black and blue, and every box a paragraph rather than a one-cell
+# table, so pressing Enter inside one adds a line instead of fighting a table.
+# The font is hers to change: it is the one piece of the typography decision
+# that is a preference rather than a rule, and she is the one who has to read
+# it at seven in the morning.
+
+# The joined font used elsewhere in school is deliberately absent, not left to
+# her to avoid: children still decoding, and SEND children in particular,
+# cannot read it. Comic Sans is out for the same kind of reason.
+PLAN_FONTS = ("Arial", "Verdana", "Tahoma", "Calibri", "Century Gothic")
+
+# What Word documents are, spelled out once rather than twice.
+DOCX_MIME = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+)
+
+
+def _the_document_for(lesson):
+    """The plan, as a Word file, with this lesson's worksheet if she made one."""
+    st.divider()
+
+    font = st.selectbox(
+        "Font for the document",
+        PLAN_FONTS,
+        key=f"plan_doc_font_{lesson.number}",
+        help="Arial by default. The joined handwriting font is not offered — "
+        "children still learning to decode cannot read it.",
+    )
+
+    spine = st.session_state.get("plan_spine")
+    scheme_plan = st.session_state.get("plan_scheme_plan")
+    anchor = anchor_for(st.session_state.get("plan_subject", ""))
+    unit_title = getattr(scheme_plan, "unit_title", "") or ", ".join(
+        st.session_state.get("plan_topics") or []
+    )
+
+    try:
+        document = lesson_plan_bytes(
+            lesson=lesson,
+            unit_title=unit_title,
+            subject=st.session_state.get("plan_subject", ""),
+            year_group=st.session_state.get("plan_year", ""),
+            lesson_minutes=int(st.session_state.get("plan_minutes", 60)),
+            lesson_count=len(spine.lessons) if spine else None,
+            anchor=anchor.scheme or anchor.note,
+            outcome=st.session_state.get("plan_outcome", ""),
+            # Only if she has actually made one. A plan that names a sheet
+            # that does not exist is a plan that lies.
+            worksheet=(st.session_state.get("plan_worksheets") or {}).get(
+                lesson.number
+            ),
+            font=font,
+        )
+    except LessonPlanError as exc:
+        # The one thing the document refuses: another lesson's sheet printed
+        # as this lesson's evidence.
+        st.error(str(exc), icon="\U0001F6AB")
+        return
+
+    st.download_button(
+        "Download this lesson plan",
+        data=document,
+        file_name=lesson_plan_filename(lesson, unit_title),
+        mime=DOCX_MIME,
+        key=f"plan_doc_{lesson.number}",
+    )
 
 
 # ── The worksheet, built from the lesson ─────────────────────────────────────
@@ -672,6 +752,63 @@ def _show_the_worksheet(lesson):
                 f"{claim.pupil_writes}"
                 for claim in claims
             )
+        )
+
+    _offer_the_worksheet(lesson, sheet)
+
+
+def _offer_the_worksheet(lesson, sheet):
+    """The sheet she prints, and the answers.
+
+    Until 2026-09-04 there was nothing here. The plan page had one download
+    button, for the lesson plan, and a worksheet could be made, checked and
+    shown — and never taken out of the app. A worksheet she cannot hand out is
+    not a worksheet.
+    """
+    # The same title the lesson plan is named after, so a unit's plans and
+    # sheets sit together in her Downloads folder rather than under two names.
+    scheme_plan = st.session_state.get("plan_scheme_plan")
+    unit_title = getattr(scheme_plan, "unit_title", "") or ", ".join(
+        st.session_state.get("plan_topics") or []
+    )
+    font = st.session_state.get(f"plan_doc_font_{lesson.number}", PLAN_FONTS[0])
+    level = st.session_state.get(f"plan_ws_level_{lesson.number}", "expected")
+
+    try:
+        for_the_children = build_worksheet_document(sheet, level=level, font=font)
+        for_her = build_worksheet_document(
+            sheet, level=level, font=font, show_answers=True
+        )
+    except Exception as exc:  # noqa: BLE001 - a teacher cannot act on a traceback
+        # The sheet passed its checks and still could not be drawn. Rare — the
+        # shape sent with every request forbids it — but a traceback in front
+        # of her is the worst possible version of this.
+        st.error(
+            "This worksheet passed its checks but could not be turned into a "
+            "document, so there is nothing to download. Make it again — this "
+            f"is usually a one-off. ({exc})",
+            icon="\U0001F6AB",
+        )
+        return
+
+    left, right = st.columns(2)
+    with left:
+        st.download_button(
+            "Download the worksheet",
+            data=for_the_children,
+            file_name=worksheet_filename(sheet, unit_title),
+            mime=DOCX_MIME,
+            key=f"plan_ws_doc_{lesson.number}",
+            use_container_width=True,
+        )
+    with right:
+        st.download_button(
+            "Download the answers",
+            data=for_her,
+            file_name=worksheet_filename(sheet, unit_title, answers=True),
+            mime=DOCX_MIME,
+            key=f"plan_ws_answers_{lesson.number}",
+            use_container_width=True,
         )
 
 

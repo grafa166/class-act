@@ -21,7 +21,14 @@ from anthropic import (
 from access import check_daily_limit, check_password, record_worksheets
 from curriculum import SUBJECT_REGISTRY, WORKSHEET_TYPE_DISPLAY, WORKSHEET_TYPE_KEY_MAP
 from curriculum.selection import list_objectives
-from generators.styles import THEMES, DIFF_LEVELS, YEAR_AGES
+from generators.styles import FONT_NAME, THEMES, DIFF_LEVELS, YEAR_AGES
+
+# Arial by default, and hers to change. The joined handwriting font used
+# elsewhere in school is deliberately absent rather than left to her to avoid:
+# children still decoding, and SEND children in particular, cannot read it.
+# Comic Sans is out for a related reason -- it was the default here until
+# 2026-09-03 and it is not a reading font.
+WORKSHEET_FONTS = (FONT_NAME, "Verdana", "Tahoma", "Calibri", "Century Gothic")
 from llm.client import generate_worksheet_content
 from llm.prompts import get_prompt
 from llm.validation import WorksheetContentError, validate_worksheet_content
@@ -642,6 +649,17 @@ with st.sidebar:
         value=False,
         help="Adds an empty box for first-language translations",
     )
+    # Arial by default, and hers to change -- the second half of the 2026-09-01
+    # typography decision. The joined handwriting font used elsewhere in school
+    # is deliberately not on this list: children still decoding, and SEND
+    # children in particular, cannot read it.
+    font = st.selectbox(
+        "Font",
+        WORKSHEET_FONTS,
+        index=0,
+        help="Arial reads most easily for children still decoding. "
+             "Joined handwriting fonts are not offered.",
+    )
 
     st.markdown("---")
 
@@ -980,7 +998,8 @@ def _clear_progress(progress_bar, status_text):
 
 
 def generate_for_level(ws_type_key, content, level, theme_key, objective_text,
-                       extra_spacing, eal_glossary, show_answers=False):
+                       extra_spacing, eal_glossary, show_answers=False,
+                       font=FONT_NAME):
     """Generate a single worksheet for one differentiation level."""
     generator = GENERATOR_MAP[ws_type_key]
     return generator(
@@ -991,6 +1010,7 @@ def generate_for_level(ws_type_key, content, level, theme_key, objective_text,
         extra_spacing=extra_spacing,
         eal_glossary=eal_glossary,
         show_answers=show_answers,
+        font=font,
     )
 
 
@@ -1019,6 +1039,7 @@ def build_and_download(params):
             params['ws_type_key'], content, level,
             params['theme_key'], params['effective_objective'],
             params['extra_spacing'], params['eal_glossary'],
+            font=params.get('font', FONT_NAME),
         )
         if doc_buffer:
             filename = (
@@ -1045,6 +1066,7 @@ def build_and_download(params):
                 params['theme_key'], params['effective_objective'],
                 params['extra_spacing'], params['eal_glossary'],
                 show_answers=True,
+                font=params.get('font', FONT_NAME),
             )
             if answer_buffer:
                 answer_filename = (
@@ -1165,6 +1187,7 @@ if generate_btn or _regenerating:
             'worksheet_type': worksheet_type,
             'extra_spacing': extra_spacing,
             'eal_glossary': eal_glossary,
+            'font': font,
             'include_answer_key': include_answer_key,
             'levels': levels_to_generate,
         }

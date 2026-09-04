@@ -87,3 +87,39 @@ def test_switching_strand_reloads_its_own_objectives():
     assert len(set(seen.values())) > 1, (
         "every strand offered the same objectives -- they are not following the strand"
     )
+
+
+class TestTheFontIsHers:
+    """Arial, *and exposed as a setting she can change herself* — the second
+    half of the 2026-09-01 typography decision, on the screen she uses."""
+
+    def test_the_worksheet_screen_offers_a_font(self, app):
+        assert any("font" in s.label.lower() for s in app.selectbox)
+
+    def test_arial_is_what_it_starts_on(self, app):
+        picker = next(s for s in app.selectbox if "font" in s.label.lower())
+        assert picker.value == "Arial"
+
+    def test_the_joined_font_is_never_offered(self, app):
+        """Children still decoding, and SEND children in particular, cannot
+        read it. It is absent, not left to her to avoid."""
+        picker = next(s for s in app.selectbox if "font" in s.label.lower())
+        assert not any("lucida" in str(o).lower() for o in picker.options)
+        assert not any("comic" in str(o).lower() for o in picker.options)
+
+    def test_the_font_reaches_the_document(self):
+        """A picker that changes nothing is worse than no picker."""
+        import io
+
+        from docx import Document
+
+        from generators.cloze import generate_cloze_worksheet
+        from tests.fixtures import ALL_CONTENT
+
+        buffer = generate_cloze_worksheet(
+            content=ALL_CONTENT["cloze"], theme_key="space", level="expected",
+            objective="", extra_spacing=False, eal_glossary=False,
+            show_answers=False, font="Verdana",
+        )
+        doc = Document(io.BytesIO(buffer.getvalue()))
+        assert doc.styles["Normal"].font.name == "Verdana"

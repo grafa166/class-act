@@ -633,18 +633,35 @@ class TestMakingTheWorksheetFromTheLesson:
             criteria = re.findall(r'^\s*"(.+?)",?$', block, re.M)
             if seen is not None:
                 seen.append({"objective": objective, "criteria": criteria})
+            # Shaped like the kind of sheet the screen actually asks for. The
+            # subject here is Science, so the screen defaults to the
+            # investigation planner — and since 2026-09-03 the coupling check
+            # searches only the parts that kind of generator prints, so a sheet
+            # in some other kind's shape has nowhere for a quote to be found.
+            # That is the point of the check: a quote has to be on the page the
+            # child is handed, not merely somewhere in the reply.
             return {
                 "title": "Rock Detectives",
                 "objective": drift or objective,
                 "success_criteria": criteria,
-                "sections": [
-                    {
-                        "title": "Part 1",
-                        "instructions": self.INSTRUCTION,
-                        "sentences": [{"pieces": [{"type": "text", "text": "Granite is rough."}]}],
-                    }
-                ],
-                "word_bank": {"words": ["hard", "soft", "rough"]},
+                "investigation": {
+                    "question": "Which of these rocks is the hardest?",
+                    "prediction": "I predict that...",
+                    "prediction_choices": None,
+                    "variables": {
+                        "change": "The rock being tested",
+                        "measure": "Whether it scratches",
+                        "keep_same": ["The same nail", "The same pressure"],
+                    },
+                },
+                "equipment": ["Six labelled rocks", "A steel nail", "A hand lens"],
+                "method": [self.INSTRUCTION, "Try to scratch each rock with the nail."],
+                "results_table": {
+                    "columns": ["Rock", "What we found"],
+                    "rows": 6,
+                    "units": ["", ""],
+                },
+                "conclusion_prompts": ["I found out that..."],
                 "evidence": [
                     {
                         "criterion": criterion,
@@ -725,3 +742,69 @@ class TestMakingTheWorksheetFromTheLesson:
         at.run()
         assert not at.exception
         assert any("same kind of task" in w.value.lower() for w in at.warning)
+
+
+class TestDownloadingTheLessonPlan:
+    """The plan as a Word document, on the screen she is standing in front of.
+
+    A document she cannot reach is not a document.
+
+    ⚠️ AppTest cannot read the file behind a download button: the bytes are
+    served over a URL and the element carries only a deferred id, so there is
+    no `data` and no `file_name` to assert on. That is a limit of the test
+    harness, not of the screen. What it does prove is stronger than it looks —
+    the page builds the document *before* it renders the button, so a button
+    on screen means the whole document was built from the real lesson, the
+    real spine and the real scheme reading without raising. The contents are
+    then checked against the lesson the page is actually holding.
+    """
+
+    def _written(self, monkeypatch):
+        return TestWritingTheLessons()._written(monkeypatch)
+
+    def _document(self, at, number=1):
+        import io
+
+        from docx import Document
+
+        from generators.lesson_plan import lesson_plan_bytes
+
+        lesson = at.session_state["plan_written_lessons"][number]
+        return Document(io.BytesIO(lesson_plan_bytes(lesson=lesson)))
+
+    def test_every_written_lesson_offers_its_plan(self, monkeypatch):
+        at = self._written(monkeypatch)
+        assert not at.exception
+        assert len(at.download_button) >= 2
+
+    def test_the_button_is_only_there_because_the_document_built(self, monkeypatch):
+        """The page builds the file first and renders the button second, so
+        this fails if the generator cannot take what the screen hands it."""
+        at = self._written(monkeypatch)
+        assert any(
+            "lesson plan" in b.label.lower() for b in at.download_button
+        ), "no lesson plan to download, so the document did not build"
+
+    def test_the_document_carries_the_lesson_on_screen(self, monkeypatch):
+        at = self._written(monkeypatch)
+        text = "\n".join(p.text for p in self._document(at).paragraphs)
+        assert "Identify and name rocks by their appearance" in text
+        assert "check before teaching" in text.lower()
+
+    def test_the_document_is_the_editable_kind(self, monkeypatch):
+        """The decision, checked on the lesson the screen actually produced
+        rather than only on a fixture."""
+        assert self._document(self._written(monkeypatch)).tables == []
+
+    def test_she_can_change_the_font(self, monkeypatch):
+        """Asked for by name in the typography decision."""
+        at = self._written(monkeypatch)
+        assert any("font" in s.label.lower() for s in at.selectbox)
+
+    def test_the_joined_font_is_never_offered(self, monkeypatch):
+        """Children still decoding, and SEND children in particular, cannot
+        read it. It is out by name, not left to her to avoid."""
+        at = self._written(monkeypatch)
+        picker = next(s for s in at.selectbox if "font" in s.label.lower())
+        assert not any("lucida" in str(o).lower() for o in picker.options)
+        assert not any("comic" in str(o).lower() for o in picker.options)
