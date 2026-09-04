@@ -1,0 +1,74 @@
+We are continuing Plan mode for Class Act — a lesson planner for a Year 3 teacher
+(ages 7–8) at St Anthony's Catholic Primary, Bromley. One-form entry, many EAL and
+SEND pupils, mixed ability, low-motivation intake.
+
+Work in /Users/graemeheerden/Documents/Claude Code /Class Act, on branch plan-mode.
+Run Python with .venv/bin/python. 813 tests pass. Everything is uncommitted and
+intentionally so — don't stash, revert or commit it without asking.
+
+Read these two first, and don't re-litigate decisions recorded in either:
+
+HANDOVER.md in that repo — full state, what is built, what's next
+/Users/graemeheerden/.claude/plans/yup-is-it-listening-smooth-frost.md — the approved
+plan, including a section on what an adversarial review already killed
+
+Last session closed out three things. The worksheet guard that had refused correct
+work four times now asks once more instead of throwing the sheet away, with the search
+left exactly as strict as it was — across three full live runs the worksheets came out
+10 of 10 with four second attempts fired and all four successful, and the last run was
+the first ever with nothing lost at all. The lesson plan is now a Word document she can
+download and actually edit — no tables, twelve named styles, Arial, black and blue.
+And Comic Sans and the six-colour word-type scheme are retired across all ten worksheet
+generators, with the symbols and labels carrying what the colours used to.
+
+Pick up at step 1 of "What's next" in the handover: a schema for the worksheet path,
+one per worksheet type. This was deliberately NOT done when the lesson path got its
+schema, and the reason is in the handover — three of the four worksheet defects were the
+guard refusing correct work because the same content legitimately comes back in different
+shapes (a cloze passage as `paragraphs`, a word-bank sentence as fragments with the gaps
+between them). A single closed schema would not merely refuse those shapes; with
+additionalProperties: false it would make them impossible to write, and there would be no
+artefact left to diagnose from. Read each type's real shape off the saved replies in
+live-runs/ before writing anything. A test currently asserts the worksheet path sends no
+schema, so this cannot happen by accident.
+
+Six working rules that have earned their place, all the hard way:
+
+TDD genuinely — write the failing test, confirm it fails for the reason you expect, then
+implement. Then run the positive control: scripts/mutate.py breaks each guard in turn and
+prints which tests notice. A mutation nothing catches is the finding. It has now caught
+four tests that passed either way and one guard with no test at all.
+
+A test cannot see a prompt defect. Run the whole flow against the real API before
+trusting it — spine, then lessons, then worksheets, not one step of it. Thirteen defects
+have been found this way and none were reachable from a test. scripts/live_run.py does
+this and writes every request, schema and raw reply to live-runs/<timestamp>/ before
+anything is parsed, and now records every second attempt and whether it worked.
+
+Read the artefact before changing anything. Three worksheet defects produced an identical
+error message and had three different causes. Reading a rendered lesson plan found two
+styles sharing a name they shouldn't; reading a rendered worksheet found sheets still
+telling children to match colours that no longer existed. Neither was visible to any test.
+
+A guard that refuses correct work is worse than no guard — invisible on a green suite,
+and it surfaces as the teacher being told her correct work is wrong. But make a wrong
+guard right; never soften it. Loosening the search is still the tempting fix and it is
+still wrong: a positive control showed that accepting a long enough run of a quote breaks
+six tests, because a paraphrase and a fabrication look identical from there. This cuts
+both ways — a no-colour test written last session would have deleted the correct
+UK-spelling instruction, and had to be narrowed before it shipped.
+
+A refusal the model will read is an instruction, not a description. One that merely
+describes what the model chose to do gets an identical reply back; one that names only
+the first fault it met gets that one fixed and loses the work to the second. There is
+one repair, so a refusal has to name everything wrong, say what would fix it, and carry
+the numbers the fix needs.
+
+Check current API guidance before changing how a call is made, rather than guessing.
+
+Graeme is not a coder. Updates go: what's true now, anything blocked on him, then always
+what's next. No file names, no jargon, no commit references.
+
+One thing outstanding for him, not for you: he cannot open .docx on this machine, so
+whether the Word output is genuinely editable in Word is still unverified. Don't treat
+it as confirmed.

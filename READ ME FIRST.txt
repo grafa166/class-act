@@ -1,0 +1,66 @@
+CLASS ACT — Worksheet Generator
+Running on this Mac. Set up 31 August 2026.
+
+
+TO START IT
+-----------
+Double-click:  Start Class Act.command
+
+A black window opens, then your browser opens the app.
+Give it about ten seconds the first time.
+
+
+TO STOP IT
+----------
+Close the black window.
+
+The app only works while that window is open. If you close it,
+the browser page will stop responding — that's normal, just
+double-click the launcher again.
+
+
+IF MACOS BLOCKS THE LAUNCHER
+----------------------------
+The first time, macOS may say it "cannot be opened because it is
+from an unidentified developer".
+
+Right-click the file instead of double-clicking, choose Open,
+then click Open again in the box that appears. You only ever
+need to do this once.
+
+
+WHAT'S IN THIS FOLDER
+---------------------
+Start Class Act.command   the launcher — this is the only file you need
+app.py                    the app itself
+.env                      your Anthropic key (hidden file, keep private)
+.venv                     the app's private copy of Python — leave alone
+everything else           the worksheet templates and safety checks
+
+
+ABOUT THE KEY
+-------------
+Your Anthropic key lives in a hidden file called .env in this
+folder. It never leaves this Mac and is deliberately excluded
+from anything published to GitHub.
+
+If worksheets stop generating and the app says the key is
+invalid, that file is where it's replaced.
+
+
+IF SOMETHING BREAKS
+-------------------
+The app now tells you what's actually wrong rather than always
+blaming the key. Read the message on screen — it will say
+whether it's the key, the credit balance, the connection, or
+something else.
+
+There's also an automatic check running twice a day on GitHub
+that generates a real worksheet. If that fails, GitHub emails
+grafa166 to say so.
+
+
+TO GET LATER FIXES
+------------------
+This folder is a copy of github.com/grafa166/class-act.
+Ask Claude to "update Class Act" and it will pull anything new.
