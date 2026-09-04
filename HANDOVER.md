@@ -536,6 +536,29 @@ Pick up at step 1 of "What's next".
    - **Positive control: five new mutations, all caught**, including building the
      document from something other than the checked sheet.
 
+## 🚨 `main` IS PRODUCTION, AND A PUSH DESTROYS HER WORK IN PROGRESS
+
+Earned 2026-09-04, the moment the merge landed and Graeme said she had been using
+the app all along.
+
+**Every push to `main` reboots the hosted app within a minute or two.** That is the
+deploy mechanism working as designed — and because **saving is deliberately switched
+off**, session state is all there is. A reboot while she is planning a unit throws
+away the spine she approved and every lesson written since, after several minutes of
+waiting per lesson. She gets no warning and no way back.
+
+- **Do not push to `main` during the school day** unless the change is worth that
+  risk. Batch documentation and tooling changes; push them in the evening.
+- **Three pushes went out between 17:12 and 17:35 on 2026-09-04** before this was
+  noticed. Nothing is known to have been lost — she may not have been on it — but
+  that was luck, not care.
+- ⚠️ **This is the strongest argument the saving layer has**, and it is written,
+  tested and switched off. The recorded reason for leaving it off is the free
+  Supabase plan pausing after ~7 days of inactivity. That reason is still valid;
+  it is now trading one silent failure against another, and **the trade should be
+  put to Graeme rather than assumed** — it was decided before anyone here knew a
+  teacher was already using the thing daily.
+
 ## Decisions already made — do not reopen
 
 - **White Rose is the only locked scheme.** Maths must never be re-sequenced; the small
