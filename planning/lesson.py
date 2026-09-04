@@ -28,9 +28,13 @@ One API call per lesson. A unit of six would not fit in one reply, and a reply
 cut short at a tidy point parses perfectly and renders a short lesson.
 """
 
+import json
+import logging
 from dataclasses import dataclass, field
 
 from llm.client import generate_structured_content
+
+logger = logging.getLogger(__name__)
 
 # One deep lesson does not fit the worksheet budget. Measured: the sections
 # below run past 4,096 tokens routinely, and a truncated reply is refused rather
@@ -172,6 +176,126 @@ class Lesson:
     source: str = "AI-drafted — check before teaching."
 
 
+def _text(*names):
+    return {name: {"type": "string"} for name in names}
+
+
+def _object(properties, required):
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": properties,
+        "required": list(required),
+    }
+
+
+def _array_of(item):
+    return {"type": "array", "items": item}
+
+
+# The shape of a lesson, sent with the request rather than described in it.
+#
+# Measured across seven live runs of the whole flow: a unit lost about one
+# lesson in three, and several of those losses were the reply coming back as
+# invalid JSON at 20-25k characters -- a stray `or` between two strings, a
+# missing comma between two fields. Not truncation: `stop_reason` was clean
+# every time and the truncation guard passed. Asking for a shape in prose and
+# finding out afterwards is what failed; this constrains the reply as it is
+# written.
+#
+# Three rules govern what goes in here.
+#
+# **It mirrors `build_lesson_prompt` field for field.** Every object closes with
+# `additionalProperties: false`, so a field the prompt asks for and this omits
+# is not merely rejected -- it cannot be written at all, and the lesson comes
+# back quietly missing it. Change one and change the other.
+#
+# **It stays constant between lessons.** The compiled grammar is cached for 24
+# hours and the cache is keyed on the schema, so a schema built per lesson pays
+# the compile on every call of a six-lesson unit. Pinning the objective with
+# `const` was the tempting version of that, and it buys nothing:
+# `validate_lesson` already refuses a drifted objective, which is the guarantee
+# the worksheet coupling rests on.
+#
+# **It carries no constraint it cannot express.** Structured outputs support
+# neither `maxItems` nor numeric bounds, so "between 2 and 5 criteria" and
+# "the minutes add up to the lesson" are not here. They stay where they were,
+# in `validate_lesson`, which is also where they belong -- this is a shape, not
+# a judgement.
+LESSON_SCHEMA = _object(
+    {
+        "objective": {"type": "string"},
+        "success_criteria": _array_of(
+            _object(_text("criterion", "evidence"), ("criterion", "evidence"))
+        ),
+        "vocabulary": _object(
+            {
+                "everyone": _array_of({"type": "string"}),
+                "expected": _array_of({"type": "string"}),
+                "stretch": _array_of({"type": "string"}),
+                "guidance": {"type": "string"},
+            },
+            ("everyone", "expected", "stretch", "guidance"),
+        ),
+        "steps": _array_of(
+            _object(
+                {
+                    "name": {"type": "string"},
+                    "minutes": {"type": "integer"},
+                    "on_the_board": {"type": "string"},
+                    "teacher_says": {"type": "string"},
+                    "questions": _array_of(
+                        _object(_text("ask", "expect"), ("ask", "expect"))
+                    ),
+                    "children_do": {"type": "string"},
+                    "watch_for": _array_of(
+                        _object(_text("wrong", "respond"), ("wrong", "respond"))
+                    ),
+                    "adults": {"type": "string"},
+                    "builds_on_step": {"type": "string"},
+                },
+                (
+                    "name",
+                    "minutes",
+                    "on_the_board",
+                    "teacher_says",
+                    "questions",
+                    "children_do",
+                    "watch_for",
+                    "adults",
+                    "builds_on_step",
+                ),
+            )
+        ),
+        "misconceptions": _array_of(
+            _object(
+                _text("misconception", "why", "address"),
+                ("misconception", "why", "address"),
+            )
+        ),
+        "assessment": _object(
+            _text("look_for", "not_yet_example"), ("look_for", "not_yet_example")
+        ),
+        "adaptations": _object(_text("eal", "send", "stretch"), ("eal", "send", "stretch")),
+        "resources": _array_of(
+            _object(_text("item", "quantity"), ("item", "quantity"))
+        ),
+        "next_lesson": {"type": "string"},
+    },
+    (
+        "objective",
+        "success_criteria",
+        "vocabulary",
+        "steps",
+        "misconceptions",
+        "assessment",
+        "adaptations",
+        "resources",
+        "next_lesson",
+    ),
+)
+
+
 LESSON_SYSTEM_PROMPT = (
     "You are an experienced UK primary teacher writing a lesson plan another "
     "teacher will teach from tomorrow morning without you there. You write what "
@@ -287,7 +411,11 @@ def build_lesson_prompt(
         '      "adults": "where the other adult is and who they are with",',
         '      "builds_on_step": "why this step needs the one before it"',
         "    }",
-        f"  ],   (the minutes must add up to exactly {lesson_minutes})",
+        f"  ],   (the minutes must add up to exactly {lesson_minutes}, and "
+        "every step needs at least 1 minute — a step is something that happens "
+        "in the room, so a step given no time cannot be taught. If a closing "
+        "or reflection belongs in the lesson, cost it and take the minutes "
+        "from another step.)",
         '  "misconceptions": [{"misconception": "...", "why": "...", "address": '
         '"..."}],',
         '  "assessment": {',
@@ -428,24 +556,131 @@ def _read_vocabulary(raw):
     return Vocabulary(guidance=guidance, **bands)
 
 
+def _timing_refusal(uncosted, steps, lesson_minutes):
+    """One refusal carrying the whole timing picture, or None if it all works.
+
+    Reported together rather than one at a time, because there is exactly one
+    repair. Measured live on 2026-09-03: a lesson came back as 70 minutes of
+    content in a 60-minute lesson with the overrun hidden by giving the plenary
+    0 minutes. Walking the steps in order, the check met the uncosted step
+    first and refused on that alone. The repair did exactly as it was told,
+    dropped the uncosted step, and was refused a second time for a ten-minute
+    overrun nobody had mentioned. The lesson was lost to a fault it was never
+    shown.
+
+    Nothing is softened here — the same lessons are refused as before. What
+    changes is that the refusal says everything wrong with the timings, and
+    says what they currently add up to, because the fix takes minutes from
+    steps that already have them and cannot be worked out without that number.
+
+    **It carries the arithmetic, not just the total.** Measured live on
+    2026-09-03: a lesson came back at 70 minutes in a 60-minute lesson, was
+    told exactly that, and the repair came back at 45. It had not ignored the
+    refusal — it redid the timings from scratch and overshot the other way. A
+    total is a verdict; what a repair needs is what each step costs now and
+    how many minutes have to move, which makes the smallest edit the obvious
+    one.
+    """
+    total = sum(step.minutes for step in steps)
+    if not uncosted and total == lesson_minutes:
+        return None
+
+    problems = []
+    if uncosted:
+        which = ", ".join(uncosted)
+        problems.append(
+            f"{which} {'have' if len(uncosted) > 1 else 'has'} no time on "
+            f"{'them' if len(uncosted) > 1 else 'it'}. Every step is something "
+            f"that happens in the room, so it has to be paid for out of the "
+            f"{lesson_minutes} minutes."
+        )
+    if total != lesson_minutes:
+        # The commonest way a plan turns out to be useless in the room.
+        over = total - lesson_minutes
+        problems.append(
+            f"The steps add up to {total} minutes but the lesson is "
+            f"{lesson_minutes}, so {abs(over)} minutes have to "
+            f"{'come out' if over > 0 else 'go in'}."
+        )
+    elif uncosted:
+        problems.append(
+            f"The steps that do have time on them already add up to the whole "
+            f"{lesson_minutes} minutes."
+        )
+
+    # What each step costs now, so the fix is an edit to this list rather than
+    # the timings written again from nothing.
+    breakdown = "\n".join(
+        f"  Step {position} ({step.name}): {step.minutes} minutes"
+        for position, step in enumerate(steps, 1)
+    )
+
+    return LessonError(
+        " ".join(problems)
+        + f"\n{breakdown}\n"
+        + f"Give every step at least 1 minute and make the whole lesson add up "
+        f"to exactly {lesson_minutes} — take the minutes from steps that have "
+        f"more than they need, or fold a step into the one before it. Change "
+        f"as few steps as you can."
+    )
+
+
 def _read_steps(raw, lesson_minutes):
     if not isinstance(raw, list) or len(raw) < 2:
-        raise LessonError("A lesson needs at least two steps.")
+        # Carries the whole timing contract, not just the fault it met.
+        #
+        # Found live on 2026-09-03: a fossils lesson came back as one 8-minute
+        # hook in a 60-minute lesson -- complete JSON, every other field
+        # present, and nothing the schema can prevent, since structured output
+        # has no `minItems`. Refused with "A lesson needs at least two steps",
+        # the repair added five more and gave the last one 0 minutes, and the
+        # lesson was lost on its second attempt to the timing rule nobody had
+        # mentioned. There is one repair, so a refusal that names only what it
+        # met hands the work to the next fault. Same law as _timing_refusal,
+        # one step earlier in the walk.
+        steps = raw if isinstance(raw, list) else []
+        got = sum(
+            item.get("minutes")
+            for item in steps
+            if isinstance(item, dict)
+            and isinstance(item.get("minutes"), int)
+            and not isinstance(item.get("minutes"), bool)
+        )
+        raise LessonError(
+            f"A lesson needs at least two steps and this has "
+            f"{len(steps) or 'none'}, adding up to {got} of the "
+            f"{lesson_minutes} minutes. Write the lesson as the steps that "
+            f"actually happen in the room — a hook, the teaching, what the "
+            f"children do, and a plenary at least. Give every step at least "
+            f"1 minute, and make them add up to exactly {lesson_minutes}."
+        )
 
+    # Every structural fault in the steps is collected and reported together,
+    # never one at a time. There is exactly one repair, so a refusal that names
+    # the first fault it meets gets that one fixed and loses the lesson to the
+    # second. Earned three times on the timings on 2026-09-03, and a fourth
+    # time the same day on the fields: a lesson refused for arriving as a
+    # single step came back with six, the sixth with nothing on the board, and
+    # was lost on its second attempt to a fault it had never been shown.
+    problems = []
+    uncosted = []
     steps = []
     for position, item in enumerate(raw, 1):
         if not isinstance(item, dict):
-            raise LessonError(f"Step {position} is not an object.")
+            problems.append(f"Step {position} is not an object.")
+            continue
 
         minutes = item.get("minutes")
-        if not isinstance(minutes, int) or minutes <= 0:
-            raise LessonError(f"Step {position} has no time on it.")
+        if not isinstance(minutes, int) or isinstance(minutes, bool) or minutes <= 0:
+            name = str(item.get("name", "")).strip()
+            uncosted.append(f"Step {position}" + (f" ({name})" if name else ""))
+            minutes = 0
 
         fields = {}
         for name in ("on_the_board", "teacher_says", "children_do"):
             value = str(item.get(name, "")).strip()
             if not value:
-                raise LessonError(
+                problems.append(
                     f"Step {position} does not say {name.replace('_', ' ')}. "
                     f"That is the difference between a plan and an outline."
                 )
@@ -458,7 +693,7 @@ def _read_steps(raw, lesson_minutes):
             ask = str(question.get("ask", "")).strip()
             expect = str(question.get("expect", "")).strip()
             if ask and not expect:
-                raise LessonError(
+                problems.append(
                     f"Step {position} asks {ask!r} without saying what answer to "
                     f"expect."
                 )
@@ -486,28 +721,29 @@ def _read_steps(raw, lesson_minutes):
             )
         )
 
-    total = sum(step.minutes for step in steps)
-    if total != lesson_minutes:
-        # The commonest way a plan turns out to be useless in the room.
-        raise LessonError(
-            f"The steps add up to {total} minutes but the lesson is "
-            f"{lesson_minutes}."
-        )
+    refusal = _timing_refusal(uncosted, steps, lesson_minutes)
+    if refusal is not None:
+        problems.append(str(refusal))
 
     if not any(step.questions for step in steps):
-        raise LessonError(
-            "No lesson step asks a question. Without them this is an outline."
+        problems.append(
+            "No lesson step asks a question. Without them this is an outline. "
+            "Add the questions to ask, each with the answer to expect."
         )
     if not any(step.watch_for for step in steps):
-        raise LessonError(
+        problems.append(
             "No lesson step says what to watch for. The common wrong answer is "
-            "the part a teacher cannot plan for on the spot."
+            "the part a teacher cannot plan for on the spot. Add it, and what "
+            "to do about it."
         )
     if not any(step.adults for step in steps):
-        raise LessonError(
+        problems.append(
             "No lesson step says where the other adult is. She has one in the "
-            "room and the plan has to use them."
+            "room and the plan has to use them. Say who they are with, and when."
         )
+
+    if problems:
+        raise LessonError("\n\n".join(problems))
     return steps
 
 
@@ -609,6 +845,61 @@ def lowered_objective_flags(adaptations):
     return flags
 
 
+def build_repair_prompt(original_prompt, attempt, reason):
+    """Ask again for a lesson that failed one of its own checks.
+
+    Not a retry. A retry sends the same request again and hopes for better
+    luck; this sends back the lesson that *was* written, names the one thing
+    wrong with it, and asks for that to be fixed. The reason is information the
+    first request did not have.
+
+    The failures it handles are all of a kind: the steps add up to 55 minutes
+    in a 60-minute lesson, a word landed in two vocabulary bands, the objective
+    came back reworded. Each is a named, self-correctable defect in an
+    otherwise complete piece of work.
+
+    The whole attempt goes back rather than just the reason, because the point
+    is to keep the lesson. Re-rolling from the original prompt throws away
+    twenty-odd thousand characters of usable teaching over a five-minute
+    arithmetic slip, and is about as likely to make a different mistake as to
+    make none. Verified live on 2026-09-03: a lesson refused for adding up to
+    55 minutes came back at 60, with the teaching in all four steps word for
+    word and the criteria and vocabulary untouched.
+
+    **What it asks to be kept is the teaching, not the numbers.** The first
+    version of this said "fix that and change nothing else", which is a
+    contradiction for the commonest failure it handles — a step with no time
+    on it can only be fixed by taking minutes from a step that has them, and
+    the total still has to come out at the length of the lesson. Told to fix it
+    and change nothing else, the model returned a byte-identical lesson and the
+    lesson was lost. Measured the same day.
+    """
+    return "\n".join(
+        [
+            original_prompt,
+            "",
+            "---",
+            "",
+            "You have already written this lesson once and it was refused. This "
+            "is exactly what you returned:",
+            "",
+            json.dumps(attempt, indent=2, ensure_ascii=False),
+            "",
+            "It was refused for one reason:",
+            f"  {reason}",
+            "",
+            "Fix exactly that. Keep the teaching word for word — the steps, the "
+            "words to say, the questions, the vocabulary and the criteria are "
+            "wanted as they are, and this is a repair rather than a rewrite. "
+            "Where the fix cannot be made without touching something else, "
+            "make that change too and no more: adjusting the timings of other "
+            "steps is expected when the fix is about time, because the minutes "
+            "still have to add up to the length of the lesson. Return the whole "
+            "lesson again, in the same shape.",
+        ]
+    )
+
+
 def generate_lesson(
     spine,
     number,
@@ -621,34 +912,80 @@ def generate_lesson(
 ):
     """Write one lesson of the approved sequence, and check it before returning.
 
+    A lesson that fails its own checks is asked for **once** more, carrying the
+    attempt and the reason it was refused — see `build_repair_prompt`. Measured
+    across seven live runs, a unit lost about one lesson in three, and the half
+    of that not caused by invalid JSON was a check correctly refusing an
+    otherwise complete lesson that was then simply thrown away.
+
+    The checks themselves do not move. The repaired lesson goes through the
+    same `validate_lesson`, and if it fails again the lesson is refused, which
+    is what the screen already reports honestly. Softening a check to make a
+    second attempt pass would put a lesson that does not add up in front of a
+    class.
+
+    Only a `LessonError` is repairable. A reply that ran out of room or came
+    back unusable is a problem with the request, not with the answer, and
+    sending it again only doubles the cost of finding that out.
+
     Raises:
         LessonError: the sequence has no such lesson, or what came back is not
-            usable — including an objective that drifted from the approved one.
+            usable after two attempts — including an objective that drifted
+            from the approved one.
         TruncatedResponseError, json.JSONDecodeError: from the model call.
     """
     this = _lesson_in(spine, number)
 
-    payload = generate_structured_content(
-        build_lesson_prompt(
-            spine=spine,
-            number=number,
-            subject=subject,
-            year_group=year_group,
-            lesson_minutes=lesson_minutes,
-            coverage=coverage,
-            build_on=build_on,
-            outcome=outcome,
-        ),
-        LESSON_SYSTEM_PROMPT,
-        max_tokens=LESSON_MAX_TOKENS,
-        timeout=LESSON_TIMEOUT,
-        stream=True,
-    )
-    lesson = validate_lesson(
-        payload,
-        expected_objective=this.objective,
+    prompt = build_lesson_prompt(
+        spine=spine,
+        number=number,
+        subject=subject,
+        year_group=year_group,
         lesson_minutes=lesson_minutes,
+        coverage=coverage,
+        build_on=build_on,
+        outcome=outcome,
     )
+
+    def ask(text):
+        return generate_structured_content(
+            text,
+            LESSON_SYSTEM_PROMPT,
+            max_tokens=LESSON_MAX_TOKENS,
+            timeout=LESSON_TIMEOUT,
+            stream=True,
+            schema=LESSON_SCHEMA,
+        )
+
+    def check(payload):
+        return validate_lesson(
+            payload,
+            expected_objective=this.objective,
+            lesson_minutes=lesson_minutes,
+        )
+
+    # The ask stays outside the try on purpose, so that only a failed *check*
+    # can reach the repair. Widening this to wrap the call as well is how a
+    # reply that ran out of room gets sent a second time to run out of room
+    # again -- the same mistake as reaching for a longer timeout.
+    payload = ask(prompt)
+    try:
+        lesson = check(payload)
+    except LessonError as refused:
+        logger.warning(
+            "Lesson %s failed its checks (%s). Asking once for a repair.",
+            number,
+            refused,
+        )
+        try:
+            lesson = check(ask(build_repair_prompt(prompt, payload, refused)))
+        except LessonError as refused_again:
+            raise LessonError(
+                f"{refused_again}\n\nThis was the second attempt — the first was "
+                f"sent back with the reason it was refused and still did not "
+                f"meet it."
+            ) from refused_again
+        logger.info("Lesson %s passed its checks on the repaired attempt.", number)
     return Lesson(
         objective=lesson.objective,
         success_criteria=lesson.success_criteria,

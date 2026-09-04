@@ -12,7 +12,7 @@ import logging
 from typing import Optional
 
 from dotenv import load_dotenv
-from anthropic import Anthropic, APIError, APITimeoutError, RateLimitError
+from anthropic import NOT_GIVEN, Anthropic, APIError, APITimeoutError, RateLimitError
 
 # Load environment variables from .env file
 load_dotenv()
@@ -153,6 +153,7 @@ def generate_structured_content(
     max_tokens: int = DEFAULT_MAX_TOKENS,
     timeout: Optional[float] = None,
     stream: bool = False,
+    schema: Optional[dict] = None,
 ) -> dict:
     """Send content to Claude and return the parsed JSON it replies with.
 
@@ -173,12 +174,27 @@ def generate_structured_content(
             server, which is what happened to lesson generation on 2026-09-02.
             The reply is still assembled and returned whole; nothing above this
             function sees a stream.
+        schema: A JSON Schema the reply must satisfy. Constrains the reply as
+            it is generated rather than asking for a shape in prose and finding
+            out afterwards. Measured across seven live runs of the whole flow:
+            a long reply came back as invalid JSON several times -- a stray
+            `or` between two strings, a missing comma between two fields, at
+            20-25k characters -- and lost the lesson. That is not truncation;
+            `stop_reason` was clean each time and the truncation guard passed.
+            Leave it None and the reply is unconstrained, exactly as before.
+
+            Two things to know before writing one. The grammar is compiled on
+            first use and cached for 24 hours, so a schema that changes per
+            request pays that cost every time -- keep it constant. And every
+            object in it needs `additionalProperties: false`.
 
     Raises:
         TruncatedResponseError: Claude did not finish the response.
         json.JSONDecodeError: The reply was not usable JSON.
     """
-    return _request_json(content, system_prompt, model, max_tokens, timeout, stream)
+    return _request_json(
+        content, system_prompt, model, max_tokens, timeout, stream, schema
+    )
 
 
 def generate_worksheet_content(
@@ -233,7 +249,9 @@ def generate_worksheet_content(
     )
 
 
-def _request_json(content, system_prompt, model, max_tokens, timeout, stream=False):
+def _request_json(
+    content, system_prompt, model, max_tokens, timeout, stream=False, schema=None
+):
     """One request, one parsed JSON reply.
 
     Every caller goes through here so the truncation check, the error logging
@@ -243,7 +261,18 @@ def _request_json(content, system_prompt, model, max_tokens, timeout, stream=Fal
     back the same assembled message a plain request would have returned, so
     everything below this point -- the truncation check, the JSON extraction,
     the error handling -- is shared and identical.
+
+    A schema is attached the same way to both, because the request that needed
+    it most is the streamed one. `NOT_GIVEN` is the SDK's own way of saying a
+    parameter was not supplied; the argument stays spelled out at both call
+    sites so `test_sdk_contract.py` can still read what we send.
     """
+    output_config = (
+        NOT_GIVEN
+        if schema is None
+        else {"format": {"type": "json_schema", "schema": schema}}
+    )
+
     client = _get_client()
 
     # Override timeout if specified
@@ -254,7 +283,10 @@ def _request_json(content, system_prompt, model, max_tokens, timeout, stream=Fal
         )
 
     logger.info(
-        "Sending request to Claude (model=%s, stream=%s)", model, stream
+        "Sending request to Claude (model=%s, stream=%s, schema=%s)",
+        model,
+        stream,
+        schema is not None,
     )
 
     try:
@@ -264,6 +296,7 @@ def _request_json(content, system_prompt, model, max_tokens, timeout, stream=Fal
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": content}],
                 system=system_prompt,
+                output_config=output_config,
             ) as response:
                 message = response.get_final_message()
         else:
@@ -272,6 +305,7 @@ def _request_json(content, system_prompt, model, max_tokens, timeout, stream=Fal
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": content}],
                 system=system_prompt,
+                output_config=output_config,
             )
     except APITimeoutError as e:
         logger.error("Claude API request timed out: %s", e)
