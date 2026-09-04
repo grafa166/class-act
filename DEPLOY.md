@@ -10,17 +10,18 @@ nothing to pay for.
 
 ## Before you start
 
-You need the code on GitHub. The repository is already set up
-(`github.com/grafa166/class-act`) but **the current work has not been pushed** —
-ask for it to be pushed first, or it will deploy an old version.
+Nothing. The code is on GitHub already (`github.com/grafa166/class-act`),
+uploaded 4 September 2026, and it is the current work rather than an old
+version. You only need the GitHub account that owns it.
 
 ## 1. Create the app
 
 1. Go to **share.streamlit.io** and sign in with the GitHub account that owns
    the repository.
 2. **Create app** → **Deploy a public app from GitHub**.
-3. Repository: `grafa166/class-act`. Branch: whichever branch the work is on.
-   Main file path: **`app.py`**.
+3. Repository: `grafa166/class-act`. Branch: **`plan-mode`** — it will offer
+   `main` by default, and `main` is the old version without the lesson
+   planner, so you have to change this one. Main file path: **`app.py`**.
 4. Don't click Deploy yet — open **Advanced settings** first and do step 2.
 
 ## 2. Put in the three settings

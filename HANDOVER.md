@@ -12,8 +12,9 @@ school's focus.
 **Work in `/Users/graemeheerden/Documents/Claude Code /Class Act`, on branch `plan-mode`.**
 Run Python with `.venv/bin/python`. **1,080 tests pass** — 41 of those are one replay per
 saved worksheet reply, so the total grows every time the flow is run and is not a number
-to match exactly. **Everything is uncommitted and intentionally so** — do not stash,
-revert, commit or push without asking.
+to match exactly. **The work is committed and pushed** as of 2026-09-04, with Graeme's
+approval, in six commits on `plan-mode` — it is no longer only on this laptop. Anything
+you add is uncommitted again: **do not stash, revert, commit or push without asking.**
 
 Read these two first, and do not re-litigate anything recorded in either:
 
@@ -540,6 +541,20 @@ Pick up at step 1 of "What's next".
    the way. Streamlit Community Cloud, free; the password door and the daily
    worksheet ceiling in `access.py` were built for exactly this. ⚠️ **Saving is
    deliberately off** (decision below), so nothing needs a database to go live.
+   - ✅ **The code half is done (2026-09-04).** Pushed to `origin/plan-mode` and
+     verified there. Measured before pushing, because a gitignore can deploy a
+     broken app: the committed tree was extracted on its own and every module the
+     hosted app imports loaded from it — and `.streamlit/secrets.toml`, `.env`,
+     `live-runs/` and `data/` are all excluded, confirmed with a control on a name
+     that does not exist so the check is known to discriminate. `SQLAlchemy` is in
+     the dev requirements and **not** the deploy ones, which is correct **because
+     nothing in the app path imports `planning/library.py`** — measured, not
+     assumed. If saving is ever switched on, that dependency has to move.
+   - 🔴 **The rest is a browser job and only Graeme can do it**, `DEPLOY.md` is the
+     checklist. ⚠️ **Streamlit will offer `main` and `main` is the old version
+     without the planner** — the branch has to be changed to `plan-mode`.
+     ⚠️ **`APP_PASSWORD` is not optional**: the address is public, and without it
+     anyone who finds it spends his money.
 
 
 2. **A repair may quietly rewrite the sheet, and nothing measures that.** Found on
