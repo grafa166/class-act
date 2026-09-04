@@ -26,7 +26,7 @@ from generators.components import (
     set_cell_padding,
     set_no_spacing,
 )
-from generators.styles import COLOURS, DIFF_LEVELS, THEMES
+from generators.styles import BLUE_FILL_HEX, BLUE_HEX, COLOURS, DIFF_LEVELS, FONT_NAME, THEMES
 
 
 # Subtitle text varies by differentiation level
@@ -36,12 +36,12 @@ _SUBTITLES = {
     'greater_depth': 'Read the problem closely and explain your reasoning!',
 }
 
-# Question type visual coding for maths problem solving
+# The badge says which kind of question it is, in words.
 _MATHS_TYPE_LABELS = {
-    'calculate': ('Calculate', 'E3F2FD', '1565C0'),
-    'explain': ('Explain', 'E8F5E9', '2E7D32'),
-    'estimate': ('Estimate', 'FFF8E1', 'F57F17'),
-    'prove': ('Prove It', 'F3E5F5', '7B1FA2'),
+    'calculate': ('Calculate', BLUE_FILL_HEX, BLUE_HEX),
+    'explain': ('Explain', BLUE_FILL_HEX, BLUE_HEX),
+    'estimate': ('Estimate', BLUE_FILL_HEX, BLUE_HEX),
+    'prove': ('Prove It', BLUE_FILL_HEX, BLUE_HEX),
 }
 
 
@@ -188,6 +188,7 @@ def generate_problem_solving_worksheet(
     extra_spacing: bool = False,
     eal_glossary: bool = False,
     show_answers: bool = False,
+    font: str = FONT_NAME,
 ) -> io.BytesIO:
     """
     Generate a maths problem solving worksheet as a Word document.
@@ -210,7 +211,7 @@ def generate_problem_solving_worksheet(
         BytesIO buffer containing the .docx file
     """
     # 1. Create the base document with standard margins and font
-    doc = create_base_document(extra_spacing=extra_spacing)
+    doc = create_base_document(extra_spacing=extra_spacing, font=font)
 
     # 2. Add the themed title area with name/date fields
     subtitle = _SUBTITLES.get(level, _SUBTITLES['expected'])

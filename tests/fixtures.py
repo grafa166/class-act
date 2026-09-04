@@ -148,7 +148,7 @@ SENTENCE_BUILDER = {
     ],
     "extension": {
         "title": "Now Try Your Own!",
-        "instructions": "Write your own sentence using a word from each colour group.",
+        "instructions": "Write your own sentence using a word of each kind.",
         "lines": 3,
     },
     "success_criteria": _SUCCESS_CRITERIA,

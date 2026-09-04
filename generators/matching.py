@@ -37,6 +37,7 @@ def generate_matching_worksheet(
     extra_spacing: bool = False,
     eal_glossary: bool = False,
     show_answers: bool = False,
+    font: str = FONT_NAME,
 ) -> io.BytesIO:
     """
     Generate a matching activity worksheet as a Word document.
@@ -59,7 +60,7 @@ def generate_matching_worksheet(
     diff = DIFF_LEVELS[level]
 
     # 1. Create the base document with standard margins and font
-    doc = create_base_document(extra_spacing=extra_spacing)
+    doc = create_base_document(extra_spacing=extra_spacing, font=font)
 
     # 2. Add the themed title area with name/date fields
     add_title_area(

@@ -27,68 +27,68 @@ from typing import Dict, Callable
 
 SUBJECT_WORD_TYPES = {
     "English": """WORD TYPES - Use these exact word_type values and corresponding labels:
-- "time" with label "\\u23f0 When? (Time words)"
-- "adjective" with label "\\u2b50 Describing Words (Adjectives)"
-- "verb" with label "\\u26a1 Doing Words (Verbs)"
-- "noun" with label "\\u25cf Things & Places (Nouns)"
-- "name" with label "\\u2605 Names (Proper Nouns)"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+- "time" with label "⏰ When? (Time words)"
+- "adjective" with label "⭐ Describing Words (Adjectives)"
+- "verb" with label "⚡ Doing Words (Verbs)"
+- "noun" with label "● Things & Places (Nouns)"
+- "name" with label "★ Names (Proper Nouns)"
+- "open" with label "✍ Your Own Words" (ONLY for greater_depth level)""",
 
-    "Maths": """WORD TYPES - Use these exact word_type values for colour-coding mathematical concepts:
-- "operation" with label "\\u2795 Operations (+, -, \\u00d7, \\u00f7)"
-- "shape" with label "\\u25b3 Shape & Space"
-- "measure" with label "\\U0001f4cf Measurement"
+    "Maths": """WORD TYPES - Use these exact word_type values. Each is printed with its own symbol, for mathematical concepts:
+- "operation" with label "➕ Operations (+, -, ×, ÷)"
+- "shape" with label "△ Shape & Space"
+- "measure" with label "📏 Measurement"
 - "number" with label "# Number & Place Value"
-- "vocabulary" with label "\\u2b50 Maths Vocabulary"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+- "vocabulary" with label "🔑 Maths Vocabulary"
+- "open" with label "✍ Your Own Words" (ONLY for greater_depth level)""",
 
-    "Science": """WORD TYPES - Use these exact word_type values for colour-coding scientific concepts:
-- "process" with label "\\u2699 Scientific Processes"
-- "equipment" with label "\\U0001f52c Equipment & Tools"
-- "organism" with label "\\U0001f331 Living Things"
-- "material" with label "\\U0001f9f1 Materials & Properties"
-- "vocabulary" with label "\\u2b50 Science Vocabulary"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+    "Science": """WORD TYPES - Use these exact word_type values. Each is printed with its own symbol, for scientific concepts:
+- "process" with label "⚙ Scientific Processes"
+- "equipment" with label "🔬 Equipment & Tools"
+- "organism" with label "🌱 Living Things"
+- "material" with label "🧱 Materials & Properties"
+- "vocabulary" with label "🔑 Science Vocabulary"
+- "open" with label "✍ Your Own Words" (ONLY for greater_depth level)""",
 
-    "History": """WORD TYPES - Use these exact word_type values for colour-coding historical concepts:
-- "event" with label "\\U0001f4c5 Events"
-- "person" with label "\\U0001f464 People"
-- "place" with label "\\U0001f4cd Places"
-- "date" with label "\\u23f3 Dates & Periods"
-- "vocabulary" with label "\\u2b50 History Vocabulary"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+    "History": """WORD TYPES - Use these exact word_type values. Each is printed with its own symbol, for historical concepts:
+- "event" with label "📅 Events"
+- "person" with label "👤 People"
+- "place" with label "📍 Places"
+- "date" with label "⏳ Dates & Periods"
+- "vocabulary" with label "🔑 History Vocabulary"
+- "open" with label "✍ Your Own Words" (ONLY for greater_depth level)""",
 
-    "Geography": """WORD TYPES - Use these exact word_type values for colour-coding geographical concepts:
-- "place" with label "\\U0001f4cd Places"
-- "feature" with label "\\u26f0 Physical Features"
-- "process" with label "\\u2699 Geographical Processes"
-- "climate" with label "\\U0001f321 Climate & Weather"
-- "vocabulary" with label "\\u2b50 Geography Vocabulary"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+    "Geography": """WORD TYPES - Use these exact word_type values. Each is printed with its own symbol, for geographical concepts:
+- "place" with label "📍 Places"
+- "feature" with label "⛰ Physical Features"
+- "process" with label "⚙ Geographical Processes"
+- "climate" with label "🌡 Climate & Weather"
+- "vocabulary" with label "🔑 Geography Vocabulary"
+- "open" with label "✍ Your Own Words" (ONLY for greater_depth level)""",
 
-    "Computing": """WORD TYPES - Use these exact word_type values for colour-coding computing concepts:
-- "algorithm" with label "\\u2699 Algorithms"
-- "data" with label "\\U0001f4ca Data"
-- "hardware" with label "\\U0001f5a5 Hardware"
-- "software" with label "\\U0001f4bb Software"
-- "vocabulary" with label "\\u2b50 Computing Vocabulary"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+    "Computing": """WORD TYPES - Use these exact word_type values. Each is printed with its own symbol, for computing concepts:
+- "algorithm" with label "⚙ Algorithms"
+- "data" with label "📊 Data"
+- "hardware" with label "🖥 Hardware"
+- "software" with label "💻 Software"
+- "vocabulary" with label "🔑 Computing Vocabulary"
+- "open" with label "✍ Your Own Words" (ONLY for greater_depth level)""",
 
-    "Languages": """WORD TYPES - Use these exact word_type values for colour-coding language learning:
-- "noun" with label "\\u25cf Naming Words (Nouns)"
-- "verb" with label "\\u26a1 Doing Words (Verbs)"
-- "adjective" with label "\\u2b50 Describing Words (Adjectives)"
-- "phrase" with label "\\U0001f4ac Phrases & Expressions"
-- "vocabulary" with label "\\u2b50 Key Vocabulary"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+    "Languages": """WORD TYPES - Use these exact word_type values. Each is printed with its own symbol, for language learning:
+- "noun" with label "● Naming Words (Nouns)"
+- "verb" with label "⚡ Doing Words (Verbs)"
+- "adjective" with label "⭐ Describing Words (Adjectives)"
+- "phrase" with label "💬 Phrases & Expressions"
+- "vocabulary" with label "🔑 Key Vocabulary"
+- "open" with label "✍ Your Own Words" (ONLY for greater_depth level)""",
 
-    "RE": """WORD TYPES - Use these exact word_type values for colour-coding religious education concepts:
-- "scripture" with label "\\U0001f4d6 Scripture & Bible"
-- "sacrament" with label "\\u2721 Sacraments & Worship"
-- "saint" with label "\\u2605 Saints & Holy People"
-- "prayer" with label "\\U0001f54a Prayer & Worship"
-- "vocabulary" with label "\\u2b50 RE Vocabulary"
-- "open" with label "\\u270d Your Own Words" (ONLY for greater_depth level)""",
+    "RE": """WORD TYPES - Use these exact word_type values. Each is printed with its own symbol, for religious education concepts:
+- "scripture" with label "📖 Scripture & Bible"
+- "sacrament" with label "✡ Sacraments & Worship"
+- "saint" with label "★ Saints & Holy People"
+- "prayer" with label "🕊 Prayer & Worship"
+- "vocabulary" with label "🔑 RE Vocabulary"
+- "open" with label "✍ Your Own Words" (ONLY for greater_depth level)""",
 }
 
 SUBJECT_CONTEXT = {
@@ -539,7 +539,7 @@ If the level is "greater_depth":
 - The extension should challenge pupils to write their own complex sentences or to improve a given sentence
 - Use varied word types: noun, verb, adjective, adverb, connective, preposition
 
-WORD TYPES FOR COLOUR-CODING - Use these exact word_type values:
+WORD TYPES - each is printed with its own symbol. Use these exact values:
 - "noun" - naming words (people, places, things)
 - "verb" - doing/being words
 - "adjective" - describing words
@@ -564,7 +564,7 @@ YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text o
   ],
   "extension": {{
     "title": "<Extension activity title, e.g. Now Try Your Own!>",
-    "instructions": "<Instructions for the extension, e.g. Write your own sentence using at least one word from each colour group.>",
+    "instructions": "<Instructions for the extension, e.g. Write your own sentence using at least one word of each kind.>",
     "lines": <number of writing lines to provide, e.g. 3>
   }},
   "success_criteria": [
@@ -576,7 +576,7 @@ YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text o
 
 CRITICAL RULES FOR THE JSON:
 1. Each exercise has "title" (string), "instructions" (string), and "sentence_parts" (array of objects).
-2. Each sentence_part has "part" (string - the word or phrase) and "word_type" (string - for colour-coding).
+2. Each sentence_part has "part" (string - the word or phrase) and "word_type" (string - which symbol the card is marked with).
 3. The sentence_parts should be listed in a SCRAMBLED order - NOT in the correct sentence order. Pupils need to rearrange them.
 4. However, when rearranged correctly, the parts must form a grammatically correct, meaningful sentence.
 5. For "developing" level: set "extension" to null (the JSON value null, not the string "null").

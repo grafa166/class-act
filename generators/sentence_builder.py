@@ -11,7 +11,7 @@ from generators.components import (
     create_base_document,
     add_title_area,
     add_learning_objective,
-    add_colour_key,
+    add_symbol_key,
     add_sentence_builder_box,
     add_answer_sentence,
     add_section_header,
@@ -21,7 +21,7 @@ from generators.components import (
     set_run_font,
     set_no_spacing,
 )
-from generators.styles import COLOURS, DIFF_LEVELS
+from generators.styles import COLOURS, DIFF_LEVELS, FONT_NAME
 from docx.shared import Pt
 
 
@@ -33,6 +33,7 @@ def generate_sentence_builder_worksheet(
     extra_spacing: bool = False,
     eal_glossary: bool = False,
     show_answers: bool = False,
+    font: str = FONT_NAME,
 ) -> io.BytesIO:
     """
     Generate a sentence builder worksheet as a Word document.
@@ -55,7 +56,7 @@ def generate_sentence_builder_worksheet(
     diff = DIFF_LEVELS[level]
 
     # 1. Create the base document with standard margins and font
-    doc = create_base_document(extra_spacing=extra_spacing)
+    doc = create_base_document(extra_spacing=extra_spacing, font=font)
 
     # 2. Add the themed title area with name/date fields
     add_title_area(
@@ -86,9 +87,9 @@ def generate_sentence_builder_worksheet(
 
     # Show the colour key with all word types found in the exercises
     if word_types_used:
-        add_colour_key(doc, level, word_types_to_show=word_types_used)
+        add_symbol_key(doc, level, word_types_to_show=word_types_used)
     else:
-        add_colour_key(doc, level)
+        add_symbol_key(doc, level)
 
     # 5. Add each exercise: section header, instructions, and sentence builder box
     for exercise_number, exercise in enumerate(content['exercises'], start=1):

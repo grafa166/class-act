@@ -20,7 +20,15 @@ from anthropic import (
 
 from access import check_daily_limit, check_password, record_worksheets
 from curriculum import SUBJECT_REGISTRY, WORKSHEET_TYPE_DISPLAY, WORKSHEET_TYPE_KEY_MAP
-from generators.styles import THEMES, DIFF_LEVELS, YEAR_AGES
+from curriculum.selection import list_objectives
+from generators.styles import FONT_NAME, THEMES, DIFF_LEVELS, YEAR_AGES
+
+# Arial by default, and hers to change. The joined handwriting font used
+# elsewhere in school is deliberately absent rather than left to her to avoid:
+# children still decoding, and SEND children in particular, cannot read it.
+# Comic Sans is out for a related reason -- it was the default here until
+# 2026-09-03 and it is not a reading font.
+WORKSHEET_FONTS = (FONT_NAME, "Verdana", "Tahoma", "Calibri", "Century Gothic")
 from llm.client import generate_worksheet_content
 from llm.prompts import get_prompt
 from llm.validation import WorksheetContentError, validate_worksheet_content
@@ -499,7 +507,16 @@ st.markdown("""
 # ─── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("## \U0001F3EB Lesson Planner")
+    st.markdown("## \U0001F3EB Class Act")
+
+    # Streamlit's automatic page menu labels the entry script by its filename,
+    # which would show a teacher a link called "app". The automatic menu is
+    # switched off in .streamlit/config.toml and these two links replace it, so
+    # the screens are named for what they do. Renaming app.py would have meant
+    # touching the launcher, the CI check and three test files -- a lot of
+    # churn for a label.
+    st.page_link("app.py", label="Worksheets", icon="\U0001F4DD")
+    st.page_link("pages/2_Lesson_Plans.py", label="Lesson Plans", icon="\U0001F4CB")
     st.markdown("---")
 
     # Subject
@@ -537,9 +554,28 @@ with st.sidebar:
         help="Select the specific topic",
     )
 
-    # Get objectives for display
-    objectives = curriculum_data[year_group][strand]["objectives"]
-    objective_text = objectives[0] if objectives else ""
+    # Learning objective.
+    #
+    # This used to be `objectives[0]`, regardless of the topic chosen above.
+    # Topics and objectives are two independent lists that drifted apart, so
+    # picking "How Fossils Are Formed" produced the objective about comparing
+    # and grouping rocks -- silently, on every worksheet built from a topic
+    # that was not first. Pairing them by position does not fix it either;
+    # measured across the curriculum, those pairings are wrong too.
+    #
+    # So the app no longer guesses. It shows the strand's objectives and the
+    # teacher chooses. The first one is pre-selected, which is what the app
+    # did before, so nothing changes for anyone who does not look.
+    objectives = list_objectives(subject, year_group, strand)
+    objective_text = st.selectbox(
+        "\U0001F3AF Learning Objective",
+        objectives,
+        help=(
+            "Which objective this worksheet is built on. The list is the whole "
+            "strand -- objectives are not tied to the topic above, so check "
+            "this matches the topic you picked."
+        ),
+    )
 
     # Custom Topic Override
     st.markdown("---")
@@ -612,6 +648,17 @@ with st.sidebar:
         "EAL glossary space",
         value=False,
         help="Adds an empty box for first-language translations",
+    )
+    # Arial by default, and hers to change -- the second half of the 2026-09-01
+    # typography decision. The joined handwriting font used elsewhere in school
+    # is deliberately not on this list: children still decoding, and SEND
+    # children in particular, cannot read it.
+    font = st.selectbox(
+        "Font",
+        WORKSHEET_FONTS,
+        index=0,
+        help="Arial reads most easily for children still decoding. "
+             "Joined handwriting fonts are not offered.",
     )
 
     st.markdown("---")
@@ -951,7 +998,8 @@ def _clear_progress(progress_bar, status_text):
 
 
 def generate_for_level(ws_type_key, content, level, theme_key, objective_text,
-                       extra_spacing, eal_glossary, show_answers=False):
+                       extra_spacing, eal_glossary, show_answers=False,
+                       font=FONT_NAME):
     """Generate a single worksheet for one differentiation level."""
     generator = GENERATOR_MAP[ws_type_key]
     return generator(
@@ -962,6 +1010,7 @@ def generate_for_level(ws_type_key, content, level, theme_key, objective_text,
         extra_spacing=extra_spacing,
         eal_glossary=eal_glossary,
         show_answers=show_answers,
+        font=font,
     )
 
 
@@ -990,6 +1039,7 @@ def build_and_download(params):
             params['ws_type_key'], content, level,
             params['theme_key'], params['effective_objective'],
             params['extra_spacing'], params['eal_glossary'],
+            font=params.get('font', FONT_NAME),
         )
         if doc_buffer:
             filename = (
@@ -1016,6 +1066,7 @@ def build_and_download(params):
                 params['theme_key'], params['effective_objective'],
                 params['extra_spacing'], params['eal_glossary'],
                 show_answers=True,
+                font=params.get('font', FONT_NAME),
             )
             if answer_buffer:
                 answer_filename = (
@@ -1136,6 +1187,7 @@ if generate_btn or _regenerating:
             'worksheet_type': worksheet_type,
             'extra_spacing': extra_spacing,
             'eal_glossary': eal_glossary,
+            'font': font,
             'include_answer_key': include_answer_key,
             'levels': levels_to_generate,
         }

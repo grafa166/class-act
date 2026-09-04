@@ -275,6 +275,7 @@ def generate_fraction_practice_worksheet(
     extra_spacing: bool = False,
     eal_glossary: bool = False,
     show_answers: bool = False,
+    font: str = FONT_NAME,
 ) -> io.BytesIO:
     """
     Generate a fraction practice worksheet as a Word document.
@@ -302,7 +303,7 @@ def generate_fraction_practice_worksheet(
     theme = THEMES[theme_key]
 
     # 1. Create the base document with standard margins and font
-    doc = create_base_document(extra_spacing=extra_spacing)
+    doc = create_base_document(extra_spacing=extra_spacing, font=font)
 
     # 2. Add the themed title area with name/date fields
     add_title_area(

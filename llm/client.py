@@ -12,7 +12,7 @@ import logging
 from typing import Optional
 
 from dotenv import load_dotenv
-from anthropic import Anthropic, APIError, APITimeoutError, RateLimitError
+from anthropic import NOT_GIVEN, Anthropic, APIError, APITimeoutError, RateLimitError
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,6 +27,40 @@ DEFAULT_MAX_TOKENS = 4096
 
 # Request timeout in seconds
 DEFAULT_TIMEOUT = 60.0
+
+# Stop reasons that mean Claude finished saying what it had to say. Anything
+# else means the reply was cut short, and its content must not be used --
+# see _reject_incomplete().
+COMPLETE_STOP_REASONS = frozenset({"end_turn", "stop_sequence", "tool_use"})
+
+
+class TruncatedResponseError(ValueError):
+    """Claude stopped before finishing the response.
+
+    A ValueError so that callers already catching ValueError cannot let a
+    half-written worksheet through.
+    """
+
+
+def _reject_incomplete(stop_reason):
+    """Refuse a reply Claude did not finish writing.
+
+    Most truncations produce broken JSON and fail at the parser anyway. The
+    reason this check has to exist separately is the case that does not: the
+    model runs out of tokens at a point where the JSON is still well-formed.
+    Then a six-question worksheet renders with three questions and nothing
+    reports a problem. Valid JSON is not evidence of a complete answer.
+
+    `None` is accepted: some SDK versions and test doubles do not set it, and
+    failing on a missing value would block correct work.
+    """
+    if stop_reason is None or stop_reason in COMPLETE_STOP_REASONS:
+        return
+    raise TruncatedResponseError(
+        f"Claude stopped early (stop_reason={stop_reason!r}), so the response is "
+        f"incomplete and has not been used. If this is 'max_tokens', the content "
+        f"asked for is too long for the token budget."
+    )
 
 
 def _get_client() -> Anthropic:
@@ -112,6 +146,57 @@ def _extract_json_from_text(text: str) -> dict:
     )
 
 
+def generate_structured_content(
+    content,
+    system_prompt: str,
+    model: str = DEFAULT_MODEL,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+    timeout: Optional[float] = None,
+    stream: bool = False,
+    schema: Optional[dict] = None,
+) -> dict:
+    """Send content to Claude and return the parsed JSON it replies with.
+
+    The shared engine underneath both worksheet and planning generation. It was
+    already generic -- only the name, the logging and the system prompt were
+    worksheet-specific -- so this exposes it rather than duplicating the error
+    handling, the truncation check and the JSON extraction a second time.
+
+    Args:
+        content: Either a prompt string, or a list of content blocks. The list
+            form is what lets a planning request carry a PDF or a photograph of
+            a scheme of work alongside its instructions; put the document and
+            image blocks *before* the instruction text.
+        system_prompt: The system prompt for this kind of request.
+        stream: Receive the reply as it is written rather than in one piece.
+            Set it for anything with a long output or a high token budget --
+            a long non-streaming request gets its connection closed by the
+            server, which is what happened to lesson generation on 2026-09-02.
+            The reply is still assembled and returned whole; nothing above this
+            function sees a stream.
+        schema: A JSON Schema the reply must satisfy. Constrains the reply as
+            it is generated rather than asking for a shape in prose and finding
+            out afterwards. Measured across seven live runs of the whole flow:
+            a long reply came back as invalid JSON several times -- a stray
+            `or` between two strings, a missing comma between two fields, at
+            20-25k characters -- and lost the lesson. That is not truncation;
+            `stop_reason` was clean each time and the truncation guard passed.
+            Leave it None and the reply is unconstrained, exactly as before.
+
+            Two things to know before writing one. The grammar is compiled on
+            first use and cached for 24 hours, so a schema that changes per
+            request pays that cost every time -- keep it constant. And every
+            object in it needs `additionalProperties: false`.
+
+    Raises:
+        TruncatedResponseError: Claude did not finish the response.
+        json.JSONDecodeError: The reply was not usable JSON.
+    """
+    return _request_json(
+        content, system_prompt, model, max_tokens, timeout, stream, schema
+    )
+
+
 def generate_worksheet_content(
     prompt: str,
     model: str = DEFAULT_MODEL,
@@ -148,6 +233,46 @@ def generate_worksheet_content(
         anthropic.RateLimitError: If the API rate limit is exceeded.
         json.JSONDecodeError: If the response cannot be parsed as JSON.
     """
+    return _request_json(
+        prompt,
+        (
+            f"You are an expert UK primary school teacher and curriculum designer "
+            f"specialising in {subject}. "
+            "You create engaging, age-appropriate educational content aligned to the "
+            "UK National Curriculum. You ALWAYS respond with valid JSON only - no "
+            "additional text, explanations, or markdown formatting outside the JSON. "
+            "Your JSON output must be precise and match the exact schema requested."
+        ),
+        model,
+        max_tokens,
+        timeout,
+    )
+
+
+def _request_json(
+    content, system_prompt, model, max_tokens, timeout, stream=False, schema=None
+):
+    """One request, one parsed JSON reply.
+
+    Every caller goes through here so the truncation check, the error logging
+    and the JSON extraction exist in exactly one place.
+
+    Streaming changes only how the reply arrives. `get_final_message()` hands
+    back the same assembled message a plain request would have returned, so
+    everything below this point -- the truncation check, the JSON extraction,
+    the error handling -- is shared and identical.
+
+    A schema is attached the same way to both, because the request that needed
+    it most is the streamed one. `NOT_GIVEN` is the SDK's own way of saying a
+    parameter was not supplied; the argument stays spelled out at both call
+    sites so `test_sdk_contract.py` can still read what we send.
+    """
+    output_config = (
+        NOT_GIVEN
+        if schema is None
+        else {"format": {"type": "json_schema", "schema": schema}}
+    )
+
     client = _get_client()
 
     # Override timeout if specified
@@ -157,27 +282,31 @@ def generate_worksheet_content(
             timeout=timeout,
         )
 
-    logger.info("Sending worksheet generation request to Claude (model=%s, subject=%s)", model, subject)
+    logger.info(
+        "Sending request to Claude (model=%s, stream=%s, schema=%s)",
+        model,
+        stream,
+        schema is not None,
+    )
 
     try:
-        message = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            system=(
-                f"You are an expert UK primary school teacher and curriculum designer "
-                f"specialising in {subject}. "
-                "You create engaging, age-appropriate educational content aligned to the "
-                "UK National Curriculum. You ALWAYS respond with valid JSON only - no "
-                "additional text, explanations, or markdown formatting outside the JSON. "
-                "Your JSON output must be precise and match the exact schema requested."
-            ),
-        )
+        if stream:
+            with client.messages.stream(
+                model=model,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": content}],
+                system=system_prompt,
+                output_config=output_config,
+            ) as response:
+                message = response.get_final_message()
+        else:
+            message = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": content}],
+                system=system_prompt,
+                output_config=output_config,
+            )
     except APITimeoutError as e:
         logger.error("Claude API request timed out: %s", e)
         raise
@@ -206,6 +335,9 @@ def generate_worksheet_content(
         message.stop_reason,
     )
 
+    # Checked before parsing: a truncated reply can still be valid JSON.
+    _reject_incomplete(message.stop_reason)
+
     # Parse the JSON from the response
     try:
         result = _extract_json_from_text(response_text)
@@ -220,9 +352,6 @@ def generate_worksheet_content(
             e.pos,
         )
 
-    logger.info(
-        "Successfully generated worksheet content (keys: %s)",
-        list(result.keys()),
-    )
+    logger.info("Parsed JSON from Claude (keys: %s)", list(result.keys()))
 
     return result

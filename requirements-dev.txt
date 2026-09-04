@@ -1,2 +1,16 @@
 -r requirements.txt
 pytest>=8.0.0,<9.0.0
+# Used by tests/test_lesson.py to prove a lesson the checks accept is one the
+# structured-output schema allows. It arrives transitively via streamlit today;
+# named here so a test does not silently lose its control if that changes.
+jsonschema>=4.0.0,<5.0.0
+
+# Saving units (`planning/library.py`). Deliberately NOT in requirements.txt:
+# saving is written and switched off, nothing the app runs imports it, and a
+# database driver that has to compile is a deployment that fails for no reason.
+# Move these up if saving is ever turned on.
+# The library of saved units. One set of statements over two databases -- a
+# file on disk while building, Supabase once hosted -- because hand-writing
+# both dialects is two definitions of the same thing.
+SQLAlchemy>=2.0.0,<3.0.0
+psycopg[binary]>=3.1.0,<4.0.0

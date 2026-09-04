@@ -21,13 +21,13 @@ from generators.components import (
     set_run_font,
     set_no_spacing,
 )
-from generators.styles import COLOURS, DIFF_LEVELS
+from generators.styles import COLOURS, DIFF_LEVELS, FONT_NAME
 from docx.shared import Pt
 
 
 # Instruction text varies by differentiation level
 _INSTRUCTIONS = {
-    'developing': 'Choose a word from the word bank to complete each sentence. Match the colours!',
+    'developing': 'Choose a word from the word bank to complete each sentence. Match the symbols!',
     'expected': 'Use the words from the word bank to complete the sentences below.',
     'greater_depth': (
         'Use the word bank for ideas, then complete the sentences. '
@@ -44,6 +44,7 @@ def generate_word_bank_worksheet(
     extra_spacing: bool = False,
     eal_glossary: bool = False,
     show_answers: bool = False,
+    font: str = FONT_NAME,
 ) -> io.BytesIO:
     """
     Generate a word bank activity worksheet as a Word document.
@@ -66,7 +67,7 @@ def generate_word_bank_worksheet(
     diff = DIFF_LEVELS[level]
 
     # 1. Create the base document with standard margins and font
-    doc = create_base_document(extra_spacing=extra_spacing)
+    doc = create_base_document(extra_spacing=extra_spacing, font=font)
 
     # 2. Add the themed title area with name/date fields
     add_title_area(
@@ -82,10 +83,10 @@ def generate_word_bank_worksheet(
     if objective:
         add_learning_objective(doc, objective, theme_key)
 
-    # 4. Add the colour-coded word bank with categories
+    # 4. Add the word bank, grouped by symbol
     add_word_bank(doc, content['categories'], level)
 
-    # 5. Add instructions with colour key
+    # 5. Add instructions with the symbol key
     instruction_text = _INSTRUCTIONS.get(level, _INSTRUCTIONS['expected'])
     add_instructions(doc, instruction_text, level)
 

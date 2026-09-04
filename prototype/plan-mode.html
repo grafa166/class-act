@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class Act — Plan mode (workflow prototype v2)</title>
+<style>
+  :root{
+    --paper:#f7f8fa; --card:#ffffff; --ink:#101418; --muted:#4a5560; --faint:#7b8794;
+    --line:#d9dee4; --line-soft:#eceff3;
+    --blue:#14448c; --blue-mid:#1f5fb8; --blue-soft:#e8eff9; --blue-line:#b9cbe6;
+    --radius:8px;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:Arial,Helvetica,"Helvetica Neue",sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#101418; --card:#171d23; --ink:#e9edf1; --muted:#a3b0bc; --faint:#7e8b98;
+      --line:#2a333c; --line-soft:#1f272e;
+      --blue:#7fb0f0; --blue-mid:#5d95dd; --blue-soft:#16243a; --blue-line:#31465f;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+       font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:26px 20px 80px}
+
+  header.top{border-bottom:2px solid var(--blue);padding-bottom:16px;margin-bottom:20px}
+  .eyebrow{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--blue);font-weight:700}
+  h1{margin:5px 0 4px;font-size:25px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14px;margin:0;max-width:72ch}
+  .note{margin-top:13px;background:var(--blue-soft);border:1px solid var(--blue-line);
+       border-left:4px solid var(--blue);border-radius:var(--radius);padding:10px 14px;font-size:13.5px}
+  .changed{margin-top:10px;border:1px dashed var(--blue);border-radius:var(--radius);
+       padding:10px 14px;font-size:13.5px;background:transparent}
+  .changed b{color:var(--blue)}
+
+  nav.steps{display:flex;gap:4px;flex-wrap:wrap;margin:20px 0 18px;border-bottom:1px solid var(--line)}
+  nav.steps button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+       font:inherit;font-size:13.5px;color:var(--muted);padding:9px 13px;cursor:pointer;
+       border-radius:5px 5px 0 0;white-space:nowrap}
+  nav.steps button:hover{color:var(--ink);background:var(--line-soft)}
+  nav.steps button[aria-selected="true"]{color:var(--blue);border-bottom-color:var(--blue);font-weight:700}
+  nav.steps .num{font-variant-numeric:tabular-nums;color:var(--faint);margin-right:6px;font-size:12px}
+  nav.steps button[aria-selected="true"] .num{color:var(--blue)}
+
+  .panel{display:none}.panel.on{display:block}
+  h2{font-size:19px;margin:0 0 4px}
+  .lede{color:var(--muted);font-size:14px;margin:0 0 18px;max-width:74ch}
+  h3{font-size:13px;margin:24px 0 9px;letter-spacing:.05em;text-transform:uppercase;color:var(--blue)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:17px;margin-bottom:13px}
+  .card.tight{padding:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+  @media(max-width:780px){.grid2{grid-template-columns:1fr}}
+
+  label.fld{display:block;font-size:11px;font-weight:700;color:var(--muted);
+       text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+  select,input[type=text],textarea{width:100%;font:inherit;font-size:14px;color:var(--ink);
+       background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+  textarea{resize:vertical;min-height:70px}
+
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+       text-transform:uppercase;padding:3px 8px;border-radius:99px;vertical-align:middle;
+       border:1px solid var(--blue);color:var(--blue);background:var(--blue-soft)}
+  .pill.solid{background:var(--blue);color:#fff}
+  .pill.hollow{background:transparent;border-color:var(--faint);color:var(--faint)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+     color:var(--blue);font-weight:700;padding:0 10px 8px;border-bottom:1px solid var(--line)}
+  td{padding:10px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .scroll{overflow-x:auto}
+
+  .lo{background:var(--blue-soft);border:1px solid var(--blue);border-radius:var(--radius);padding:14px 16px}
+  .lo .lab{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue)}
+  .lo .txt{font-size:16px;font-weight:700;margin-top:3px;line-height:1.4}
+  .sc{margin-top:12px;border-top:1px solid var(--blue-line);padding-top:11px}
+  .sc ul{margin:6px 0 0;padding-left:0;list-style:none}
+  .sc li{position:relative;padding-left:25px;margin-bottom:7px;font-size:14px}
+  .sc li::before{content:"";position:absolute;left:0;top:3px;width:13px;height:13px;
+       border:1.5px solid var(--blue);border-radius:2px}
+  .sc .ev{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+
+  .chain{list-style:none;padding:0;margin:0}
+  .chain li{position:relative;padding:0 0 0 32px}
+  .chain li .dot{position:absolute;left:6px;top:15px;width:10px;height:10px;border-radius:99px;
+       background:var(--card);border:2px solid var(--blue)}
+  .chain li.taught .dot{background:var(--blue)}
+  .chain li.future .dot{border-color:var(--faint)}
+  .chain li::after{content:"";position:absolute;left:10px;top:26px;bottom:-2px;width:2px;background:var(--line)}
+  .chain li:last-child::after{display:none}
+  .chain .row{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+       padding:11px 14px;margin-bottom:8px}
+  .chain .row.now{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+  .chain .row.amend{border-color:var(--blue);border-style:dashed}
+  .chain .n{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .chain .obj{font-weight:700;font-size:14.5px;margin-top:1px}
+  .chain .builds{font-size:12.5px;color:var(--muted);margin-top:5px}
+  .chain .builds b{color:var(--blue)}
+  .chain .refl{font-size:12.5px;color:var(--blue);margin-top:5px}
+  .chain .act{margin-top:7px}
+  .btn{display:inline-block;font-size:12px;border:1px solid var(--blue);color:var(--blue);
+       background:transparent;border-radius:5px;padding:3px 10px;cursor:pointer;font-family:inherit}
+  .btn.solid{background:var(--blue);color:#fff}
+
+  .adapt{border-left:3px solid var(--blue-line);padding-left:13px;margin-bottom:13px}
+  .adapt h4{margin:0 0 5px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--blue)}
+  .adapt ul{margin:0;padding-left:17px;font-size:13.5px} .adapt li{margin-bottom:3px}
+
+  .callout{background:var(--blue-soft);border:1px solid var(--blue-line);border-radius:7px;
+       padding:9px 13px;font-size:13px;margin-bottom:13px}
+  .callout b{color:var(--blue)}
+  .warn{border:1px solid var(--blue);border-left-width:4px;background:transparent;
+       border-radius:7px;padding:10px 13px;font-size:13.5px;margin-bottom:12px}
+  .warn .lab{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue)}
+
+  .flow{display:flex;gap:11px;flex-wrap:wrap;margin:6px 0}
+  .flow .box{flex:1;min-width:185px;background:var(--card);border:1px solid var(--line);
+       border-radius:var(--radius);padding:12px 14px}
+  .flow .box .t{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--blue);font-weight:700}
+  .flow .arrow{display:flex;align-items:center;color:var(--blue);font-size:19px;font-weight:700}
+
+  code{font-family:var(--mono);font-size:12.5px;background:var(--line-soft);padding:1.5px 5px;border-radius:3px}
+  pre{font-family:var(--mono);font-size:12.5px;background:var(--line-soft);border:1px solid var(--line);
+      border-radius:6px;padding:11px 13px;overflow-x:auto;margin:0}
+
+  .tick{display:flex;align-items:flex-start;gap:9px;padding:6px 0;font-size:14px}
+  .tick .bx{flex:none;width:14px;height:14px;border:1.5px solid var(--muted);border-radius:2px;margin-top:4px}
+  .tick.on .bx{background:var(--blue);border-color:var(--blue);position:relative}
+  .tick.on .bx::after{content:"";position:absolute;left:4px;top:1px;width:3.5px;height:7.5px;
+       border:solid #fff;border-width:0 2px 2px 0;transform:rotate(43deg)}
+
+  /* ── vocabulary bands ── */
+  .vocab{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media(max-width:780px){.vocab{grid-template-columns:1fr}}
+  .band{border:1px solid var(--line);border-radius:7px;padding:11px 13px;background:var(--card)}
+  .band .bt{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--blue)}
+  .band .who{font-size:11.5px;color:var(--muted);margin:2px 0 7px}
+  .band .words{font-size:13.5px;line-height:1.7}
+  .band.b2{border-left:3px solid var(--blue-line)}
+  .band.b3{border-left:3px solid var(--blue)}
+
+  /* ── the deep plan document (Arial, black + blue only) ── */
+  .doc{background:#fff;color:#111;border:1px solid #c9d2dc;border-radius:3px;
+       padding:34px 38px;box-shadow:0 2px 12px rgba(0,0,0,.08);max-width:790px;margin:0 auto;
+       font-family:Arial,Helvetica,sans-serif;font-size:13.5px;line-height:1.5}
+  .doc .dh{border-bottom:2px solid #14448c;padding-bottom:8px;margin-bottom:13px}
+  .doc .dh .cls{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:#4a5560;font-weight:700}
+  .doc .dh h4{margin:3px 0 0;font-size:18px;color:#14448c}
+  .doc .src{font-size:11.5px;color:#4a5560;margin-bottom:13px}
+  .doc .dbox{border:1.5px solid #14448c;background:#f2f6fc;border-radius:4px;padding:12px 14px;margin-bottom:13px}
+  .doc .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#14448c;font-weight:700}
+  .doc .dbox .v{font-size:15px;font-weight:700;margin-top:2px}
+  .doc .dbox ul{margin:8px 0 0;padding-left:18px}
+  .doc .dsec{margin-bottom:15px}
+  .doc .dsec>.k{border-bottom:1px solid #c9d2dc;padding-bottom:3px;margin-bottom:7px;display:block}
+  .doc ul{margin:0;padding-left:18px} .doc li{margin-bottom:3px}
+  .doc .stepbox{border:1px solid #c9d2dc;border-left:3px solid #14448c;border-radius:4px;
+       padding:10px 13px;margin-bottom:10px}
+  .doc .stepbox .sh{display:flex;justify-content:space-between;gap:10px;align-items:baseline;
+       border-bottom:1px solid #e3e8ee;padding-bottom:5px;margin-bottom:7px}
+  .doc .stepbox .sn{font-weight:700;font-size:14px;color:#14448c}
+  .doc .stepbox .tm{font-size:11.5px;color:#4a5560;font-weight:700;white-space:nowrap}
+  .doc .lbl{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#14448c}
+  .doc .say{border-left:2px solid #14448c;padding-left:10px;margin:5px 0;font-style:italic;color:#111}
+  .doc .mini{font-size:12.5px;color:#333;margin-top:6px}
+  .doc .mini b{color:#14448c;font-style:normal}
+  .doc .vgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12.5px}
+  .doc .vgrid .vb{border:1px solid #c9d2dc;border-radius:4px;padding:8px 10px}
+  .doc .vgrid .vb .vt{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#14448c}
+  .doc .dfoot{border-top:1px solid #c9d2dc;margin-top:16px;padding-top:8px;
+       font-size:11px;color:#4a5560;display:flex;justify-content:space-between;gap:12px}
+
+  /* ── worksheet facsimile: Arial, black + blue ── */
+  .ws{background:#fff;color:#111;border:1px solid #c9d2dc;border-radius:3px;padding:24px 28px;
+      box-shadow:0 2px 12px rgba(0,0,0,.08);font-family:Arial,Helvetica,sans-serif;font-size:13.5px}
+  .ws .wt{border:2px solid #14448c;border-radius:5px;padding:8px 12px;text-align:center;margin-bottom:12px}
+  .ws .wt .n{font-size:11px;color:#4a5560}
+  .ws .wt h4{margin:2px 0 0;font-size:16px;color:#14448c}
+  .ws .wlo{background:#f2f6fc;border:1.5px solid #14448c;border-radius:5px;padding:9px 12px;
+       font-size:13px;margin-bottom:11px}
+  .ws .wq{border:1px solid #c9d2dc;border-radius:5px;padding:10px 12px;margin-bottom:9px}
+  .ws .tagev{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#14448c;
+       font-weight:700;display:block;margin-bottom:4px}
+  .ws .lines{border-bottom:1px dotted #7b8794;height:17px;margin-top:7px}
+  .ws.rejected{opacity:.55}
+  .ws.rejected .wlo{background:#fff;border-style:dashed}
+
+  .foot{margin-top:32px;padding-top:15px;border-top:2px solid var(--blue);color:var(--muted);font-size:13.5px}
+  ul.plain{padding-left:19px;font-size:14px} ul.plain li{margin-bottom:5px}
+  .q{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--blue);
+     border-radius:6px;padding:11px 14px;margin-top:11px;font-size:13.5px}
+  .q b{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">Class Act · Phase 0 prototype · v2</div>
+  <h1>Plan mode</h1>
+  <p class="sub">Year 3 at St Anthony's. Real data throughout — the actual White Rose Autumn Block 1
+  small steps, and the National Curriculum Rocks objectives already in Class Act.</p>
+  <div class="changed"><b>Changed since v1, from your notes:</b> Arial everywhere, changeable ·
+    black and blue only, six-colour scheme dropped · White Rose is the only locked scheme ·
+    lesson count varies with the topic and the term · whole sequence planned at once, single lessons
+    amendable afterwards · <b>vocabulary in three bands</b> · and the plan is now
+    <b>step-by-step at the level of what actually happens</b>, not an outline of what it should contain.</div>
+  <div class="note"><b>Still a picture, not the product.</b> Nothing here generates anything.
+  The question is whether this is how she'd actually plan and teach.</div>
+</header>
+
+<nav class="steps" role="tablist">
+  <button role="tab" aria-selected="true"  data-p="p1"><span class="num">1</span>Where are you?</button>
+  <button role="tab" aria-selected="false" data-p="p2"><span class="num">2</span>The sequence</button>
+  <button role="tab" aria-selected="false" data-p="p3"><span class="num">3</span>The lesson</button>
+  <button role="tab" aria-selected="false" data-p="p4"><span class="num">4</span>The worksheet</button>
+  <button role="tab" aria-selected="false" data-p="p5"><span class="num">5</span>After the lesson</button>
+  <button role="tab" aria-selected="false" data-p="p6"><span class="num">6</span>The Word document</button>
+</nav>
+
+<!-- ─────────────── 1 ─────────────── -->
+<section class="panel on" id="p1">
+  <h2>Step 1 — Where does this lesson come from?</h2>
+  <p class="lede">One scheme is mandated and must never be re-sequenced. Everything else is hers to build,
+  using whatever scheme exists as a reference point rather than a script.</p>
+
+  <div class="card scroll">
+    <table>
+      <thead><tr><th style="width:24%">Subject</th><th style="width:28%">What exists</th><th>What Plan mode does</th></tr></thead>
+      <tbody>
+        <tr><td><b>Maths</b></td><td>White Rose <span class="pill solid">Locked</span></td>
+            <td><b>Never invents an order.</b> You pick the small step; it becomes the objective, word for word.
+            Everything else is built around it.</td></tr>
+        <tr><td><b>Science · History · Geography · Computing</b></td><td>Boost <span class="pill">Hers to build</span></td>
+            <td><b>She gives it the Boost plan she has to follow.</b> The tool keeps the coverage and the order,
+            and rebuilds the teaching. See below.</td></tr>
+        <tr><td><b>RE</b></td><td>Lighting the Path <span class="pill">Hers to build</span></td>
+            <td>Takes the branch and unit as the frame; she builds the lessons.
+            Never reproduces Oxford's material.</td></tr>
+        <tr><td><b>English</b></td><td>School plan + RAP text <span class="pill">Hers to build</span></td>
+            <td>Anchors on the medium-term plan and this half-term's text, then builds the lessons underneath.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">Maths — the locked case</h3>
+      <label class="fld">Block</label>
+      <select><option>Year 3 · Autumn · Block 1 — Place Value</option>
+              <option>Year 3 · Autumn · Block 2 — Addition and Subtraction</option>
+              <option>Year 3 · Autumn · Block 3 — Multiplication and Division</option></select>
+      <label class="fld" style="margin-top:11px">Small step</label>
+      <select><option>1 · Represent numbers to 100</option><option>2 · Hundreds</option>
+              <option selected>3 · Represent numbers to 1,000</option><option>4 · 100s, 10s and 1s</option>
+              <option>5 · The number line to 1,000</option><option>6 · Find 1, 10, 100 more or less</option></select>
+      <div class="warn" style="margin-top:12px"><div class="lab">Locked</div>
+        The step is the objective. Class Act will not rewrite it, reorder it or propose a different
+        progression — that would fight the school's calculation policy.</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Science — hers to build</h3>
+      <label class="fld">Topic</label>
+      <select><option selected>Rocks</option><option>Light</option><option>Forces and Magnets</option>
+              <option>Plants</option><option>Animals, Including Humans</option></select>
+      <label class="fld" style="margin-top:11px">National Curriculum objective</label>
+      <select><option selected>Compare and group together different kinds of rocks on the basis of their appearance and simple physical properties</option>
+              <option>Describe in simple terms how fossils are formed when things that have lived are trapped within rock</option>
+              <option>Recognise that soils are made from rocks and organic matter</option></select>
+      <div class="grid2" style="margin-top:11px;gap:10px">
+        <div><label class="fld">Weeks left in term</label>
+          <select><option>4</option><option selected>6</option><option>7</option><option>8</option></select></div>
+        <div><label class="fld">Lessons</label>
+          <select><option>4</option><option>5</option><option selected>6 · suggested</option>
+                  <option>7</option><option>8</option></select></div>
+      </div>
+      <div class="callout" style="margin-top:11px"><b>Six is a suggestion, not a rule.</b>
+        It's worked out from the topic and the weeks you have left, and you can override it.</div>
+    </div>
+  </div>
+
+  <h3>Bring your own scheme — the Boost case</h3>
+  <p style="font-size:13.5px;color:var(--muted);margin:-4px 0 12px">Your words: the long-term and medium-term
+  plans exist and have to be followed, but they're old and bad. So the tool takes them as a <b>constraint</b>,
+  not as teaching. It keeps what you're accountable for and rebuilds the rest.</p>
+
+  <div class="card">
+    <label class="fld">Give it the plan you have to follow</label>
+    <div class="flow" style="margin:0 0 11px">
+      <div class="box"><div class="t">Paste it</div><div style="margin-top:4px;font-size:13px">Copy the unit page or the medium-term plan straight in</div></div>
+      <div class="box"><div class="t">Upload it</div><div style="margin-top:4px;font-size:13px">The Word or PDF the subject leader circulated</div></div>
+      <div class="box"><div class="t">Photograph it</div><div style="margin-top:4px;font-size:13px">Snap the printed plan — Claude reads images, so a photo of the page works</div></div>
+    </div>
+    <textarea style="min-height:88px">Boost · Y3 Autumn 1 · Rocks and Soils
+Coverage: types of rock; properties; fossils; soil formation.
+Assessment: children know that rocks have different properties.
+Suggested activities: rock sorting; fossil worksheet; soil jar.</textarea>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">Kept — because you're accountable for it</h3>
+      <ul style="font-size:13.5px;padding-left:18px;margin:0">
+        <li>Which knowledge is covered, and nothing dropped</li>
+        <li>The order units are taught in across the year</li>
+        <li>Unit titles, so it matches the school's plan on paper</li>
+        <li>Any assessment point the subject leader set</li>
+      </ul>
+      <div class="callout" style="margin-top:11px"><b>This is the part that keeps you safe.</b>
+        Deviating from agreed coverage is what causes trouble. Improving how it's taught is not.</div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Rebuilt — because this is where it's thin</h3>
+      <ul style="font-size:13.5px;padding-left:18px;margin:0">
+        <li>Objectives sharpened into something teachable and assessable</li>
+        <li>Success criteria that actually match the objective</li>
+        <li>The hook, the modelling, the questions, the misconceptions</li>
+        <li>Vocabulary in three bands</li>
+        <li>EAL and SEND access to the same objective</li>
+      </ul>
+      <div class="callout" style="margin-top:11px">Checked against <b>Oak</b>'s sequence for the same content —
+        free, and it covers Science, History, Geography and Computing at KS2.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Coverage map — your evidence for the subject leader</h3>
+    <div class="scroll"><table>
+      <thead><tr><th style="width:34%">Boost says the unit covers</th><th style="width:16%">Now taught in</th><th>What changed, and why</th></tr></thead>
+      <tbody>
+        <tr><td>Types of rock</td><td><b>L1</b></td><td>Unchanged.</td></tr>
+        <tr><td>Properties</td><td><b>L2 · L3</b></td><td><b>Split over two lessons.</b> “Know rocks have different
+            properties” isn't teachable in one — grouping has to be secure before it can be justified.</td></tr>
+        <tr><td>Fossils</td><td><b>L4</b></td><td>Objective sharpened against the National Curriculum wording:
+            <i>“describe in simple terms how fossils are formed when things that have lived are trapped within rock”</i>.</td></tr>
+        <tr><td>Soil formation</td><td><b>L5</b></td><td>Unchanged.</td></tr>
+        <tr><td>—</td><td><b>L6</b></td><td><b>Added:</b> an end-of-unit outcome. The Boost plan has no point at
+            which the whole unit is assessed.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="warn" style="margin-top:12px"><div class="lab">Gaps it will name out loud</div>
+      <ul style="margin:6px 0 0;padding-left:18px;font-size:13.5px">
+        <li>“Children know that rocks have different properties” is a statement, not an objective —
+          nothing in it says what a child would <i>do</i>. Rewritten, and the original shown beside it.</li>
+        <li>No progression between the suggested activities — sorting, then a worksheet, then a jar.
+          Nothing needs the lesson before it.</li>
+        <li>No misconceptions listed anywhere in the unit.</li>
+      </ul>
+      <div style="margin-top:9px;font-size:13.5px"><b>Nothing is changed silently.</b> Every departure from Boost
+        is listed with the reason, so you can defend it in a sentence — or put it back.</div></div>
+  </div>
+
+  <div class="warn">
+    <div class="lab">A real bug this fixes — found while planning</div>
+    <p style="margin:6px 0 0">Today, choosing the topic <b>“How Fossils Are Formed”</b> hands back the objective
+    <b>“Compare and group together different kinds of rocks…”</b>. Topics and objectives are two separate lists
+    that were never linked, and the code always takes the first objective (<code>app.py:542</code>). Every
+    worksheet built from a non-first topic has carried the wrong objective. Fixed first, because everything
+    downstream inherits it.</p>
+  </div>
+</section>
+
+<!-- ─────────────── 2 ─────────────── -->
+<section class="panel" id="p2">
+  <h2>Step 2 — Plan the whole sequence, then amend what doesn't land</h2>
+  <p class="lede">You approve the chain of objectives first — that's the bit worth your judgement and it's fast.
+  Then all the lessons are written in one go so the unit hangs together. Afterwards any single lesson can be
+  re-planned without disturbing the rest.</p>
+
+  <div class="flow" style="margin-bottom:16px">
+    <div class="box"><div class="t">1 · Spine</div><div style="margin-top:4px">The objectives and how each needs the one before. You approve or edit it.</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="t">2 · Write them all</div><div style="margin-top:4px">Every lesson written in one pass, so the sequence is continuous rather than six separate ideas.</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="t">3 · Amend as you go</div><div style="margin-top:4px">A lesson doesn't land — re-plan just that one, and the ones after it are re-checked against it.</div></div>
+  </div>
+
+  <div class="card tight" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+    <div><b>Year 3 Science · Rocks</b> <span style="color:var(--muted)">· 6 lessons · Autumn 1 · 6 weeks left</span></div>
+    <span class="pill hollow">AI-drafted — check before teaching</span>
+  </div>
+
+  <div class="card">
+    <label class="fld">End-of-unit outcome</label>
+    <div style="font-size:14.5px">Children group a set of unknown rocks by their physical properties and justify
+    each grouping, explaining which property they used and why it matters for how that rock is used.</div>
+  </div>
+
+  <ul class="chain">
+    <li class="taught"><div class="dot"></div><div class="row">
+      <div class="n">Lesson 1 · taught</div>
+      <div class="obj">Identify and name rocks by their appearance</div>
+      <div class="builds">Starting point — no prior lesson.</div></div></li>
+
+    <li class="taught"><div class="dot"></div><div class="row amend">
+      <div class="n">Lesson 2 · taught · needs amending</div>
+      <div class="obj">Group rocks by their physical properties</div>
+      <div class="builds">Builds on <b>L1</b> — needs the naming vocabulary before properties can be compared.</div>
+      <div class="refl">You recorded: “permeability confused everyone — most were secure on hardness”</div>
+      <div class="act"><span class="btn solid">Re-plan this lesson</span>
+        <span class="btn">Fold it into Lesson 3 instead</span></div></div></li>
+
+    <li><div class="dot"></div><div class="row now">
+      <div class="n">Lesson 3 · written, not yet taught</div>
+      <div class="obj">Compare two rocks and explain which is better suited to a job</div>
+      <div class="builds">Builds on <b>L2</b> — grouping must be secure before it can be justified.
+        <b>Re-teaches permeability</b> because of what you recorded.</div>
+      <div class="act"><span class="btn">Open</span> <span class="btn">Amend</span>
+        <span class="btn">Make the worksheet</span></div></div></li>
+
+    <li class="future"><div class="dot"></div><div class="row">
+      <div class="n">Lesson 4 · written</div>
+      <div class="obj">Describe how fossils are formed inside rock</div>
+      <div class="builds">Builds on <b>L3</b> — needs the idea that rock forms in layers over time.</div></div></li>
+
+    <li class="future"><div class="dot"></div><div class="row">
+      <div class="n">Lesson 5 · written</div>
+      <div class="obj">Recognise that soil is made from rock and organic matter</div>
+      <div class="builds">Builds on <b>L4</b> — extends “rock changes over time” to soil.</div></div></li>
+
+    <li class="future"><div class="dot"></div><div class="row">
+      <div class="n">Lesson 6 · written · outcome</div>
+      <div class="obj">Group and justify a set of unknown rocks</div>
+      <div class="builds">Assesses the <b>end-of-unit outcome</b>. Draws on L1–L5.</div></div></li>
+  </ul>
+
+  <div class="callout" style="margin-top:14px"><b>When you amend a lesson, the ones after it are re-checked.</b>
+  If re-planning Lesson 2 means Lesson 3 now assumes something that is no longer taught, you get told —
+  the later lessons aren't silently left pointing at something that changed.</div>
+</section>
+
+<!-- ─────────────── 3 ─────────────── -->
+<section class="panel" id="p3">
+  <h2>Step 3 — The lesson, step by step</h2>
+  <p class="lede">Not an outline of what a lesson should contain — what actually happens, in order, with the
+  words to say, the questions to ask, and what to watch for. Deep enough to build slides from.</p>
+
+  <div class="card tight" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div><b>Lesson 3 of 6</b> <span style="color:var(--muted)">· Y3 Science · Rocks · 60 min</span></div>
+    <span class="pill hollow">AI-drafted — check before teaching</span>
+  </div>
+
+  <div class="lo">
+    <div class="lab">Learning objective</div>
+    <div class="txt">Compare two rocks and explain which is better suited to a job.</div>
+    <div class="sc">
+      <div class="lab">Success criteria</div>
+      <ul>
+        <li>I can describe two rocks using property words.
+            <span class="ev">Evidence: completed comparison table</span></li>
+        <li>I can test which rock is harder and which lets water through.
+            <span class="ev">Evidence: two ticked columns with a reason</span></li>
+        <li>I can choose a rock for a job and give a property as my reason.
+            <span class="ev">Evidence: written sentence using “because”</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Vocabulary — three bands, not one list</h3>
+  <p style="font-size:13.5px;color:var(--muted);margin:-4px 0 10px">You said “hard, soft, rough” is too easy
+  for some and too hard for others. So every lesson names all three bands, and the plan says who each is for
+  and when to introduce it.</p>
+  <div class="vocab">
+    <div class="band">
+      <div class="bt">Everyone leaves with</div>
+      <div class="who">Including new-to-English arrivals</div>
+      <div class="words">hard · soft · rough · smooth · shiny · dull</div>
+    </div>
+    <div class="band b2">
+      <div class="bt">Expected</div>
+      <div class="who">Most of the class, taught explicitly today</div>
+      <div class="words">grainy · layered · absorbent · waterproof · scratch</div>
+    </div>
+    <div class="band b3">
+      <div class="bt">Stretch</div>
+      <div class="who">Offered to all, expected of some</div>
+      <div class="words">permeable · impermeable · porous · durable</div>
+    </div>
+  </div>
+  <div class="callout" style="margin-top:10px"><b>How the bands are used:</b> teach the everyday word first,
+  then name the technical one beside it — <i>“lets water through — scientists call that</i> permeable<i>.”</i>
+  A child using “lets water through” has met the criterion. Using “permeable” exceeds it.</div>
+
+  <h3>The lesson, in order</h3>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:9px">
+      <b style="color:var(--blue)">1 · Hook</b><span style="font-size:12px;color:var(--muted);font-weight:700">3 min</span></div>
+    <div style="font-size:12.5px"><span class="pill hollow">On the board</span>
+      Photograph of a waterlogged pitch, standing water on the surface, match abandoned.</div>
+    <div style="border-left:2px solid var(--blue);padding-left:11px;margin:9px 0;font-style:italic">
+      “This game was called off. Not because of the players — because of what's underneath the grass.”</div>
+    <div style="font-size:13.5px"><b style="color:var(--blue)">Ask:</b> “What do you think is under a football pitch?”
+      Take three answers. Don't correct any of them yet.<br>
+      <b style="color:var(--blue)">Reveal:</b> the layers — grass, sand, gravel, stone.<br>
+      <b style="color:var(--blue)">Then:</b> “By the end of today, you'll choose the right rock for a job like this one.”</div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:9px">
+      <b style="color:var(--blue)">2 · Retrieval — and the re-teach</b><span style="font-size:12px;color:var(--muted);font-weight:700">7 min</span></div>
+    <div style="font-size:13.5px">
+      Four rocks from Lesson 2 on each table. <b style="color:var(--blue)">Ask:</b> “Name one. Tell your partner
+      one property.” Cold-call three.<br>
+      <span style="color:var(--muted)">Expect: granite — hard · chalk — soft · sandstone — grainy.</span>
+      <div class="callout" style="margin:10px 0 0"><b>Re-teach permeability — this is why the lesson opens here.</b>
+      A pipette of water on granite, a pipette on sandstone. Everyone watches for twenty seconds.
+      <b style="display:block;margin-top:6px">Ask:</b> “Did the water sit on top, or go in?”</div>
+      <div style="margin-top:9px"><b style="color:var(--blue)">Watch for:</b> children saying a rock “soaked it up”
+      because the surface looks wet. Lift it and show the underside — wet surface isn't the same as water going through.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:9px">
+      <b style="color:var(--blue)">3 · I do — modelling</b><span style="font-size:12px;color:var(--muted);font-weight:700">10 min</span></div>
+    <div style="font-size:13.5px">
+      Compare granite and chalk aloud, filling row 1 of the table on the board while they watch.
+      <div style="border-left:2px solid var(--blue);padding-left:11px;margin:9px 0;font-style:italic">
+        “Granite is hard — I can't scratch it with my nail. Chalk is soft — look, it marks the paper straight away.
+        So if something is going to be walked on all day, I want the hard one.”</div>
+      <b style="color:var(--blue)">Model the sentence:</b> “I would choose granite <b>because</b> it is hard.”
+      <div class="callout" style="margin-top:10px"><b>Model a wrong answer on purpose, then fix it.</b>
+        <i>“I could choose chalk because it's pretty.”</i> — then: “Pretty isn't a property that helps here.
+        My reason has to be something I tested.” This is the error most of them will make.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:9px">
+      <b style="color:var(--blue)">4 · We do — together</b><span style="font-size:12px;color:var(--muted);font-weight:700">5 min</span></div>
+    <div style="font-size:13.5px">Row 2 together, sandstone and slate. Children write in their own tables as you fill the board.
+      <br><b style="color:var(--blue)">Ask:</b> “Which one would you not want on a roof? Say why using a property word.”</div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:9px">
+      <b style="color:var(--blue)">5 · You do — paired testing</b><span style="font-size:12px;color:var(--muted);font-weight:700">25 min</span></div>
+    <div style="font-size:13.5px">
+      Pairs, four rocks, comparison table. Scratch test first, then the water test.
+      Then the “because” sentence.
+      <div style="margin-top:9px"><b style="color:var(--blue)">Adults:</b> TA at the water station — it's the messy
+      one and the one they rush. You target the pairs who found permeability hard last lesson.</div>
+      <div style="margin-top:7px"><b style="color:var(--blue)">Watch for:</b> pairs testing both rocks with different
+      amounts of water. Stop and ask: “Is that a fair test?”</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:9px">
+      <b style="color:var(--blue)">6 · Plenary</b><span style="font-size:12px;color:var(--muted);font-weight:700">10 min</span></div>
+    <div style="font-size:13.5px">
+      Pick two children who chose <b>different</b> rocks. Both justify.
+      <div style="border-left:2px solid var(--blue);padding-left:11px;margin:9px 0;font-style:italic">
+        “They chose different rocks and they're both right — because they were thinking about different jobs.”</div>
+      <b style="color:var(--blue)">Exit question:</b> “Would you use chalk for a playground? Why not?”
+      <div style="margin-top:7px;color:var(--muted)">Timings: 3 + 7 + 10 + 5 + 25 + 10 = <b>60 minutes</b>.
+      Checked automatically — a plan whose parts don't add up to the lesson is rejected.</div>
+    </div>
+  </div>
+
+  <h3>Same objective for everyone — what changes is the route</h3>
+  <div class="callout"><b>Nobody gets a smaller objective.</b> The adaptations change how a child reaches it
+  and how they show it.</div>
+  <div class="grid2">
+    <div class="card">
+      <div class="adapt"><h4>EAL — access</h4><ul>
+        <li>Pre-teach band 1 words with the actual rocks in hand, before the lesson if possible</li>
+        <li>Stem on the table: “The ___ is harder than the ___ because ___.”</li>
+        <li>Word mat with a photograph beside every property word</li>
+        <li>Talk to a partner before anything is written down</li></ul></div>
+      <div class="adapt"><h4>SEND — access</h4><ul>
+        <li>Two rocks, not four — same objective, less to hold at once</li>
+        <li>Table pre-printed; record with ticks and photographs rather than writing</li>
+        <li>Adult at the water station throughout</li>
+        <li>The “because” sentence may be spoken and scribed</li></ul></div>
+    </div>
+    <div class="card">
+      <div class="adapt"><h4>Stretch</h4><ul>
+        <li>Choose for two different jobs and explain why the answer changes</li>
+        <li>Predict before testing, then account for a prediction that was wrong</li>
+        <li>Use <i>permeable</i> and <i>impermeable</i> in the written reason</li></ul></div>
+      <div class="adapt"><h4>Misconceptions to expect</h4><ul>
+        <li>“Heavier means harder”</li>
+        <li>“It looks wet, so it soaked it up”</li>
+        <li>“Bigger rocks are stronger”</li>
+        <li>Giving an opinion as a reason — “because it's nice”</li></ul></div>
+      <div class="adapt"><h4>Assessment — what to look at</h4><ul>
+        <li>The “because” sentence must name a <b>property</b>, not an opinion</li>
+        <li>“Because it's nice” has not met criterion 3, however neat the work is</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── 4 ─────────────── -->
+<section class="panel" id="p4">
+  <h2>Step 4 — The worksheet comes <em>from</em> the lesson</h2>
+  <p class="lede">The worksheet inherits the objective word for word, and every section has to produce the
+  evidence a success criterion names.</p>
+
+  <div class="flow">
+    <div class="box"><div class="t">Lesson</div><div style="margin-top:4px">Objective + three criteria, each naming its evidence</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="t">Passed straight in</div><div style="margin-top:4px">Not re-worded, not re-derived, not paraphrased by a second AI</div></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="t">Worksheet</div><div style="margin-top:4px">Each section produces one named piece of evidence</div></div>
+  </div>
+
+  <div class="grid2" style="margin-top:15px">
+    <div>
+      <div class="warn"><div class="lab">Passes</div>
+        Objective identical to the lesson's. All three criteria have a section producing their evidence.</div>
+      <div class="ws">
+        <div class="wt"><div class="n">Name ______________   Date ________</div>
+          <h4>Which rock for the job?</h4></div>
+        <div class="wlo"><b>We are learning to:</b> compare two rocks and explain which is better suited to a job.</div>
+        <div class="wq"><span class="tagev">Evidences criterion 1</span>
+          Describe each rock. Use two property words.
+          <div class="lines"></div><div class="lines"></div></div>
+        <div class="wq"><span class="tagev">Evidences criterion 2</span>
+          Test them. Tick the harder one, and the one that lets water through.
+          <div style="display:flex;gap:16px;margin-top:7px;font-size:12.5px">
+            <span>Harder: ▢ A  ▢ B</span><span>Lets water through: ▢ A  ▢ B</span></div></div>
+        <div class="wq"><span class="tagev">Evidences criterion 3</span>
+          I would choose rock ____ for the pitch <b>because</b> …
+          <div class="lines"></div><div class="lines"></div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="warn"><div class="lab">Rejected before it renders</div>
+        A perfectly pleasant sheet that teaches the topic and evidences <b>none</b> of the criteria.
+        That's the failure worth catching — it looks completely fine.</div>
+      <div class="ws rejected">
+        <div class="wt"><div class="n">Name ______________   Date ________</div><h4>All about rocks!</h4></div>
+        <div class="wlo"><b>We are learning to:</b> <i>know about different rocks</i>
+          — not the lesson's objective</div>
+        <div class="wq">Colour in the three types of rock.</div>
+        <div class="wq">Find and circle 8 rock words in the wordsearch.</div>
+        <div class="wq">Copy: “Granite is a hard rock.”</div>
+      </div>
+      <div class="card tight" style="margin-top:12px">
+        <b style="font-size:13px;color:var(--blue)">Why this one is cheap to catch</b>
+        <p style="margin:5px 0 0;font-size:13.5px;color:var(--muted)">By the time a worksheet is requested the
+        objective and criteria are already structured data — so it's a plain check, not a judgement call.
+        Which is exactly why it can be trusted, unlike asking a second AI whether a sheet “feels aligned”.</p>
+        <pre style="margin-top:9px">assert worksheet.objective == lesson.objective
+for c in lesson.criteria:
+    assert any(s.evidences == c for s in sheet)</pre>
+      </div>
+    </div>
+  </div>
+  <div class="callout" style="margin-top:13px"><b>Worksheets are black and blue in Arial too</b> —
+  the six-colour word-type scheme is gone. The symbols and labels that carried the meaning stay,
+  so it still works photocopied in mono and for a colour-blind child.</div>
+</section>
+
+<!-- ─────────────── 5 ─────────────── -->
+<section class="panel" id="p5">
+  <h2>Step 5 — After the lesson</h2>
+  <p class="lede">Ticks first, so it's ten seconds at the end of a lesson and there's nowhere to accidentally
+  type a child's name.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">How did Lesson 2 go?</h3>
+      <div class="tick on"><div class="bx"></div><div>Most were secure</div></div>
+      <div class="tick"><div class="bx"></div><div>Needed more modelling</div></div>
+      <div class="tick on"><div class="bx"></div><div>Vocabulary was the barrier</div></div>
+      <div class="tick"><div class="bx"></div><div>Ran out of time</div></div>
+      <div class="tick"><div class="bx"></div><div>Didn't teach it</div></div>
+      <label class="fld" style="margin-top:14px">Anything else? (optional)</label>
+      <textarea>permeability confused everyone — most were secure on hardness</textarea>
+      <div class="warn" style="margin-top:9px"><div class="lab">No names, please</div>
+        This text is sent to Anthropic to write the next lesson. The ticks alone work fine if you'd rather
+        not type anything.
+        <div style="margin-top:8px"><span class="btn">Show me exactly what gets sent</span></div></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">What the next lesson was built from</h3>
+      <p style="font-size:13.5px;color:var(--muted);margin-top:0">Always shown, so you can see when it's working
+      off something old or thin.</p>
+      <table>
+        <tr><td><b>L1</b></td><td>taught</td><td style="color:var(--faint)">12 Sept</td></tr>
+        <tr><td><b>L2</b></td><td>taught + your note</td><td style="color:var(--faint)">15 Sept</td></tr>
+        <tr><td><b>L3</b></td><td>written, not yet taught</td><td style="color:var(--faint)">—</td></tr>
+      </table>
+      <div class="warn" style="margin-top:13px"><div class="lab">If you stop ticking, it says so</div>
+        After a fortnight with no record it tells you it's planning from the scheme alone, rather than quietly
+        pretending it knows how the class got on.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────── 6 ─────────────── -->
+<section class="panel" id="p6">
+  <h2>Step 6 — The Word document</h2>
+  <p class="lede">Arial, black and blue, one lesson per page. This is the depth you asked for — every step says
+  what happens, what to say, what to ask and what to watch for, so slides could be built straight off it.</p>
+
+  <div class="doc">
+    <div class="dh">
+      <div class="cls">Year 3 · Kindness Class · St Anthony's Catholic Primary</div>
+      <h4>Science — Rocks · Lesson 3 of 6</h4>
+    </div>
+    <div class="src"><b>From:</b> Boost “Rocks” + National Curriculum · sequence built by Class Act,
+      checked against Oak &nbsp;|&nbsp; <b>60 minutes</b> &nbsp;|&nbsp; 4 rocks per pair</div>
+
+    <div class="dbox">
+      <div class="k">Learning objective</div>
+      <div class="v">Compare two rocks and explain which is better suited to a job.</div>
+      <div class="k" style="margin-top:10px">Success criteria</div>
+      <ul>
+        <li>I can describe two rocks using property words. <i>(comparison table)</i></li>
+        <li>I can test which rock is harder and which lets water through. <i>(two ticked columns with a reason)</i></li>
+        <li>I can choose a rock for a job and give a property as my reason. <i>(“because” sentence)</i></li>
+      </ul>
+    </div>
+
+    <div class="dsec"><span class="k">Builds on</span>
+      <ul><li>Lesson 2 — grouping rocks by physical properties.</li>
+          <li><b>Permeability is re-taught in the starter</b> — recorded as the sticking point last lesson.</li></ul></div>
+
+    <div class="dsec"><span class="k">Vocabulary — three bands</span>
+      <div class="vgrid">
+        <div class="vb"><div class="vt">Everyone</div>hard · soft · rough · smooth · shiny · dull</div>
+        <div class="vb"><div class="vt">Expected</div>grainy · layered · absorbent · waterproof · scratch</div>
+        <div class="vb"><div class="vt">Stretch</div>permeable · impermeable · porous · durable</div>
+      </div>
+      <div class="mini"><b>Use:</b> teach the everyday word, then name the technical one beside it —
+        “lets water through — scientists call that <i>permeable</i>.” “Lets water through” meets the criterion;
+        “permeable” exceeds it.</div></div>
+
+    <div class="dsec"><span class="k">The lesson, step by step</span>
+
+      <div class="stepbox">
+        <div class="sh"><span class="sn">1 · Hook</span><span class="tm">3 min</span></div>
+        <div><span class="lbl">On the board</span> — photograph of a waterlogged pitch, match abandoned.</div>
+        <div class="say">“This game was called off. Not because of the players — because of what's underneath the grass.”</div>
+        <div class="mini"><b>Ask:</b> “What do you think is under a football pitch?” Take three answers; don't correct them.<br>
+          <b>Reveal:</b> the layers — grass, sand, gravel, stone.<br>
+          <b>Then:</b> “By the end of today you'll choose the right rock for a job like this one.”</div>
+      </div>
+
+      <div class="stepbox">
+        <div class="sh"><span class="sn">2 · Retrieval and re-teach</span><span class="tm">7 min</span></div>
+        <div class="mini"><b>Ask:</b> “Name one rock. Tell your partner one property.” Cold-call three.
+          Expect granite — hard, chalk — soft, sandstone — grainy.</div>
+        <div class="mini"><b>Re-teach permeability:</b> a pipette of water on granite, a pipette on sandstone.
+          Everyone watches for twenty seconds. <b>Ask:</b> “Did the water sit on top, or go in?”</div>
+        <div class="mini"><b>Watch for:</b> “it soaked it up” because the surface looks wet. Lift the rock and show
+          the underside — a wet surface is not water going through.</div>
+      </div>
+
+      <div class="stepbox">
+        <div class="sh"><span class="sn">3 · I do — modelling</span><span class="tm">10 min</span></div>
+        <div class="mini">Compare granite and chalk aloud, filling row 1 of the table on the board.</div>
+        <div class="say">“Granite is hard — I can't scratch it with my nail. Chalk is soft — look, it marks straight
+          away. So if something gets walked on all day, I want the hard one.”</div>
+        <div class="mini"><b>Model the sentence:</b> “I would choose granite <b>because</b> it is hard.”<br>
+          <b>Then model a wrong reason on purpose:</b> “I could choose chalk because it's pretty” — and correct it:
+          “Pretty isn't a property. My reason has to be something I tested.” This is the error most will make.</div>
+      </div>
+
+      <div class="stepbox">
+        <div class="sh"><span class="sn">4 · We do — together</span><span class="tm">5 min</span></div>
+        <div class="mini">Row 2 together, sandstone and slate. They write in their own tables as you fill the board.<br>
+          <b>Ask:</b> “Which would you not want on a roof? Say why, using a property word.”</div>
+      </div>
+
+      <div class="stepbox">
+        <div class="sh"><span class="sn">5 · You do — paired testing</span><span class="tm">25 min</span></div>
+        <div class="mini">Pairs, four rocks, comparison table. Scratch test, then water test, then the
+          “because” sentence.</div>
+        <div class="mini"><b>Adults:</b> TA at the water station — it's messy and they rush it. You target the pairs
+          who found permeability hard last lesson.</div>
+        <div class="mini"><b>Watch for:</b> pairs using different amounts of water on each rock.
+          Stop and ask, “Is that a fair test?”</div>
+      </div>
+
+      <div class="stepbox">
+        <div class="sh"><span class="sn">6 · Plenary</span><span class="tm">10 min</span></div>
+        <div class="mini">Pick two children who chose <b>different</b> rocks. Both justify.</div>
+        <div class="say">“They chose different rocks and they're both right — because they were thinking about
+          different jobs.”</div>
+        <div class="mini"><b>Exit question:</b> “Would you use chalk for a playground? Why not?”</div>
+      </div>
+    </div>
+
+    <div class="dsec"><span class="k">EAL — access to the same objective</span>
+      <ul><li>Pre-teach band 1 words with the rocks in hand, before the lesson if possible</li>
+          <li>Stem on the table: “The ___ is harder than the ___ because ___.”</li>
+          <li>Word mat with a photograph beside every property word; partner talk before writing</li></ul></div>
+
+    <div class="dsec"><span class="k">SEND — access to the same objective</span>
+      <ul><li>Two rocks not four · pre-printed table · ticks and photographs instead of writing</li>
+          <li>Adult at the water station throughout · the sentence may be spoken and scribed</li></ul></div>
+
+    <div class="dsec"><span class="k">Stretch</span>
+      <ul><li>Choose for two different jobs and explain why the answer changes</li>
+          <li>Predict before testing, then account for a wrong prediction</li>
+          <li>Use <i>permeable</i> and <i>impermeable</i> in the written reason</li></ul></div>
+
+    <div class="dsec"><span class="k">Misconceptions to expect</span>
+      <ul><li>“Heavier means harder” · “It looks wet so it soaked it up” · “Bigger rocks are stronger”</li>
+          <li>Giving an opinion as a reason — “because it's nice”</li></ul></div>
+
+    <div class="dsec"><span class="k">Assessment — what to look at</span>
+      <ul><li>The “because” sentence must name a <b>property</b>, not an opinion.</li>
+          <li>“Because it's nice” has not met criterion 3, however neat the work is.</li></ul></div>
+
+    <div class="dsec"><span class="k">Resources</span>
+      <ul><li>4 rock samples per pair (granite, chalk, sandstone, slate) · pipettes · water pots · paper towel</li>
+          <li>Magnifiers · comparison sheet · board images: waterlogged pitch, pitch cross-section</li></ul></div>
+
+    <div class="dfoot"><span>Next: L4 — how fossils are formed inside rock</span>
+      <span>AI-drafted — check before teaching</span></div>
+  </div>
+</section>
+
+<div class="foot">
+  <b>What I still need from you</b>
+  <ul class="plain" style="margin-top:8px">
+    <li>Is the lesson on tabs 3 and 6 now at the right depth — or still too thin, or now too long to read at 8am?</li>
+    <li>Are the three vocabulary bands the right way to solve “too easy for some, too hard for others”?</li>
+    <li>Should slides be generated from this later? You mentioned building a PowerPoint off the plan —
+      I've not built it, but the plan is now deep enough to.</li>
+    <li>Arial confirmed everywhere, black and blue only. Anything else on the page you'd change?</li>
+  </ul>
+</div>
+
+</div>
+<script>
+  const tabs=[...document.querySelectorAll('nav.steps button')];
+  tabs.forEach(b=>b.addEventListener('click',()=>{
+    tabs.forEach(x=>x.setAttribute('aria-selected',String(x===b)));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===b.dataset.p));
+    window.scrollTo({top:0,behavior:'smooth'});
+  }));
+</script>
+</body>
+</html>

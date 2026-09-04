@@ -1,5 +1,8 @@
 .env
 .env.*
+# Streamlit's local secrets file. Never committed: it is where the API key
+# and the app password go when testing the hosted setup on this machine.
+.streamlit/secrets.toml
 __pycache__/
 *.pyc
 *.pyo
@@ -12,3 +15,11 @@ venv/
 *.docx
 create_myth_worksheet.py
 *.bak
+
+# Raw replies from scripts/live_run.py — the artefacts that make a live
+# defect diagnosable. Local only; they can carry a whole unit of content.
+live-runs/
+
+# The local library of saved units. Her planning, and it is not ours to commit.
+data/
+*.sqlite3

@@ -6,6 +6,7 @@ differentiated Word document using python-docx via reusable components.
 """
 
 import io
+from generators.styles import FONT_NAME
 from generators.components import (
     create_base_document,
     add_title_area,
@@ -30,9 +31,9 @@ _SUBTITLES = {
 
 # Instruction text varies by differentiation level
 _INSTRUCTIONS = {
-    'developing': 'Write the word you choose on the line. Match the colours!',
+    'developing': 'Write the word you choose on the line. Match the symbols!',
     'expected': (
-        'Fill in the blanks below. Match the colour and symbol '
+        'Fill in the blanks below. Match the symbol '
         'to find the right word in the word bank!'
     ),
     'greater_depth': (
@@ -50,6 +51,7 @@ def generate_cloze_worksheet(
     extra_spacing: bool = False,
     eal_glossary: bool = False,
     show_answers: bool = False,
+    font: str = FONT_NAME,
 ) -> io.BytesIO:
     """
     Generate a cloze passage worksheet as a Word document.
@@ -70,7 +72,7 @@ def generate_cloze_worksheet(
         BytesIO buffer containing the .docx file
     """
     # 1. Create the base document with standard margins and font
-    doc = create_base_document(extra_spacing=extra_spacing)
+    doc = create_base_document(extra_spacing=extra_spacing, font=font)
 
     # 2. Add the themed title area with name/date fields
     subtitle = _SUBTITLES.get(level, _SUBTITLES['expected'])
@@ -81,10 +83,10 @@ def generate_cloze_worksheet(
     if objective:
         add_learning_objective(doc, objective, theme_key)
 
-    # 4. Add the colour-coded word bank
+    # 4. Add the word bank, grouped by symbol
     add_word_bank(doc, content['word_bank'], level)
 
-    # 5. Add instructions with colour key
+    # 5. Add instructions with the symbol key
     instruction_text = _INSTRUCTIONS.get(level, _INSTRUCTIONS['expected'])
     add_instructions(doc, instruction_text, level)
 

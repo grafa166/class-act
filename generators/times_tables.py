@@ -24,7 +24,7 @@ from generators.components import (
     set_table_full_width,
     remove_table_borders,
 )
-from generators.styles import COLOURS, DIFF_LEVELS, THEMES
+from generators.styles import COLOURS, DIFF_LEVELS, FONT_NAME, THEMES
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
@@ -37,6 +37,7 @@ def generate_times_tables_worksheet(
     extra_spacing: bool = False,
     eal_glossary: bool = False,
     show_answers: bool = False,
+    font: str = FONT_NAME,
 ) -> io.BytesIO:
     """
     Generate a times tables drill worksheet as a Word document.
@@ -61,7 +62,7 @@ def generate_times_tables_worksheet(
     theme = THEMES[theme_key]
 
     # 1. Base document
-    doc = create_base_document(extra_spacing=extra_spacing)
+    doc = create_base_document(extra_spacing=extra_spacing, font=font)
 
     # 2. Title area
     add_title_area(
