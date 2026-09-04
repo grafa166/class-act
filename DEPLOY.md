@@ -10,19 +10,42 @@ nothing to pay for.
 
 ## Before you start
 
-Nothing. The code is on GitHub already (`github.com/grafa166/class-act`),
-uploaded 4 September 2026, and it is the current work rather than an old
-version. You only need the GitHub account that owns it.
+Nothing. The code is on GitHub already (`github.com/grafa166/class-act`), on
+the ordinary `main` branch as of 4 September 2026, and it is the current work
+rather than an old version.
+
+⚠️ **There may already be a Class Act app in your account.** A note in this
+repository from 31 August refers to a live address, `class-act.streamlit.app`.
+Whether it is still there cannot be checked from outside — an app name that
+has never existed responds identically — so **look at your workspace first**:
+
+- **If an app is already listed**, you do not need section 1 at all. It reads
+  from `main`, so it will pick the lesson planner up on its own within a
+  minute or two. Go straight to section 2 and check its settings, because a
+  password set for the old worksheet-only version may not exist at all.
+- **If there is no app**, start at section 1.
 
 ## 1. Create the app
 
-1. Go to **share.streamlit.io** and sign in with the GitHub account that owns
-   the repository.
-2. **Create app** → **Deploy a public app from GitHub**.
-3. Repository: `grafa166/class-act`. Branch: **`plan-mode`** — it will offer
-   `main` by default, and `main` is the old version without the lesson
-   planner, so you have to change this one. Main file path: **`app.py`**.
-4. Don't click Deploy yet — open **Advanced settings** first and do step 2.
+1. Go to **share.streamlit.io** and sign in. **Continue with Google** using
+   `grafa16@gmail.com` is fine — it does not have to be GitHub.
+2. Whichever way you sign in, it will ask to **connect your GitHub account**
+   before it can see the repository. That step is required even for people who
+   signed in with GitHub in the first place, so it is not a sign anything has
+   gone wrong. The repository is public, so it only asks for ordinary access —
+   it does not need the permissions a private repository would.
+3. **Create app** → **Deploy a public app from GitHub**.
+4. Repository: `grafa166/class-act`. Branch: **`main`** — which is what it
+   offers by default, so there is nothing to change. Main file path:
+   **`app.py`**.
+5. Don't click Deploy yet — open **Advanced settings** first and do section 2.
+
+⚠️ **The branch is not a setting you can edit later.** Streamlit identifies an
+app by its owner, repository, branch and file, and changing any of them means
+deleting the app and building it again. Worse, renaming or deleting the branch
+*without* deleting the app first permanently costs you the ability to
+administer or even delete it. This is why the work was put on `main`: it is
+the one branch that is never going to move.
 
 ## 2. Put in the three settings
 
@@ -45,7 +68,17 @@ What each one does:
 
 ⚠️ **Set the password.** The address is public even though the app is not
 listed anywhere, and without a password a stranger finding it can run up your
-AI bill. This is the one setting that is not optional.
+AI bill. This is the one setting that is not optional. The app itself has no
+accounts and no email — one shared password is the whole door, so it is the
+only thing standing between a passer-by and your bill.
+
+⚠️ **The password is not written down in here, and must not be.** This
+repository is public, so anything in it is readable by anyone. The password
+was given to you separately; keep it somewhere private and paste it straight
+into the Secrets box. Same for the API key.
+
+It is compared exactly, so it is case-sensitive and spaces count. Paste it
+rather than retyping it, both here and when you give it to her.
 
 The daily ceiling is a cost guard rail, not an accounting record: it is held in
 memory and starts again if the host restarts. That is deliberate.

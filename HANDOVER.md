@@ -550,11 +550,32 @@ Pick up at step 1 of "What's next".
      the dev requirements and **not** the deploy ones, which is correct **because
      nothing in the app path imports `planning/library.py`** — measured, not
      assumed. If saving is ever switched on, that dependency has to move.
+   - ✅ **It is on `main` now (2026-09-04, with Graeme's approval), and `plan-mode`
+     was fast-forwarded to match** — the two branches are the same commit. Reason,
+     measured against Streamlit's own docs rather than assumed: Community Cloud
+     identifies an app by **owner, repository, branch and entry file**, the branch
+     is **not editable afterwards**, and renaming or deleting a deployed branch
+     without first deleting the app **permanently** costs the ability to
+     administer or even delete it. Deploying off a side branch would have left
+     exactly that landmine.
+   - 🚨 **THE APP MAY ALREADY EXIST — do not assume this is a fresh deploy.** A
+     commit on `main` from 2026-08-31 (`Keep the hosted app awake`) names a live
+     address, **`class-act.streamlit.app`**, and says the public URL was verified.
+     ⚠️ **Whether it is still live cannot be established from outside**: an app
+     name that never existed returns byte-identical responses (303 to the same
+     auth URL; `/healthz` answers `{"status":"ok"}` for both, because that is the
+     platform, not the app). **The control refutes the probe** — do not report the
+     app as absent on the strength of a curl. Only signing in settles it.
+   - ⚠️ **The scheduled keep-awake ping has never worked.** Today's run logged
+     `responded with 303` then `ping did not complete — ignoring`. It is
+     `continue-on-error`, so it has been green throughout. Worth fixing once the
+     hosting is settled, but it says nothing about whether the app is up.
    - 🔴 **The rest is a browser job and only Graeme can do it**, `DEPLOY.md` is the
-     checklist. ⚠️ **Streamlit will offer `main` and `main` is the old version
-     without the planner** — the branch has to be changed to `plan-mode`.
-     ⚠️ **`APP_PASSWORD` is not optional**: the address is public, and without it
-     anyone who finds it spends his money.
+     checklist. ⚠️ **`APP_PASSWORD` is not optional**: the repository is public so
+     the app is public by default, and without a password anyone who finds it
+     spends his money. A password was generated for him on 2026-09-04 and given
+     to him **in chat only** — it is deliberately **not** in the repository, which
+     is public, and **not** in memory.
 
 
 2. **A repair may quietly rewrite the sheet, and nothing measures that.** Found on
