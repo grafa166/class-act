@@ -698,3 +698,105 @@ class TestTheThresholdsAreTheMeasuredOnes:
 
     def test_the_substitution_line_sits_above_a_rewrite(self):
         assert CLOSE_ENOUGH_TO_SUBSTITUTE > 0.570
+
+
+class TestTheCreditLineUnderHerPassage:
+    """🚨 An attribution nobody asked for, that nothing can check, printed on
+    the sheet the children read.
+
+    Measured off the only reply ever generated from a supplied text
+    (`live-runs/2026-09-15-232726-probe-source-types/`): given the Secret Garden
+    extract, the model wrote *"From The Secret Garden by Frances Hodgson
+    Burnett"* into `passage.source_note`. That one is correct — and it is
+    correct because the model **recognised the book**, which is precisely the
+    mechanism that names the wrong one on a text it half recognises. The app
+    never asks for the line, cannot verify it, and would print it under her own
+    extract on thirty copies.
+
+    ⚠️ It is dropped rather than corrected. Writing the origin there instead
+    would put a file name on a child's worksheet, and the only person who knows
+    what the book actually is is her.
+    """
+
+    def _with_a_credit(self, text, credit):
+        content = reading(text)
+        content["passage"]["source_note"] = credit
+        return content
+
+    def test_the_models_attribution_is_not_printed_under_her_passage(self):
+        outcome = with_the_source_in_place(
+            self._with_a_credit(HER_TEXT, "From The Secret Garden by Frances Hodgson Burnett"),
+            "reading_comprehension",
+            held(),
+            "use_exactly",
+        )
+        assert not outcome.content["passage"].get("source_note")
+
+    def test_it_goes_on_the_path_where_her_text_is_put_back(self):
+        """The substituting path builds its own copy of the sheet, so it has
+        to drop the credit there too or the fix reaches only half the cases."""
+        outcome = with_the_source_in_place(
+            self._with_a_credit(DRIFTED, "Adapted from a novel by Frances Hodgson Burnett"),
+            "reading_comprehension",
+            held(),
+            "use_exactly",
+        )
+        assert outcome.substituted is True
+        assert not outcome.content["passage"].get("source_note")
+
+    def test_it_goes_when_she_asked_for_the_text_to_be_adapted(self):
+        """An adaptation is her text rewritten. A book named under it is an
+        attribution for something that is no longer in that book."""
+        outcome = with_the_source_in_place(
+            self._with_a_credit(LIGHTLY_REWRITTEN, "From The Secret Garden"),
+            "reading_comprehension",
+            held(),
+            "adapt",
+        )
+        assert not outcome.content["passage"].get("source_note")
+
+    def test_it_goes_on_a_photograph_where_we_never_held_the_words(self):
+        """⚠️ The route that matters most: her scans. The passage came out of a
+        picture nothing here can read, so an attribution under it is the model
+        guessing at a book from an image."""
+        outcome = with_the_source_in_place(
+            self._with_a_credit("Whatever Claude read off the page.", "From a book"),
+            "reading_comprehension",
+            a_scan(),
+            "questions_from",
+        )
+        assert not outcome.content["passage"].get("source_note")
+
+    def test_it_goes_on_a_word_problem_sheet_too(self):
+        content = word_problems(HER_TEXT)
+        content["scenario"]["source_note"] = "From a maths textbook"
+        outcome = with_the_source_in_place(
+            content, "problem_solving", held(), "use_exactly"
+        )
+        assert not outcome.content["scenario"].get("source_note")
+
+    def test_a_sheet_she_supplied_no_text_for_keeps_what_it_wrote(self):
+        """⚠️ Out of scope, deliberately. Without a source the passage is the
+        model's own invention and so is the line under it; there is nothing
+        here that makes one more honest than the other, and widening this to
+        every sheet would change a screen nobody asked about."""
+        content = self._with_a_credit("A passage about space.", "Adapted from a space book")
+        outcome = with_the_source_in_place(content, "reading_comprehension", None, None)
+        assert outcome.content["passage"]["source_note"] == "Adapted from a space book"
+
+    def test_the_sheet_she_passed_in_is_not_changed_underneath_her(self):
+        """The caller keeps the reply it was given. Editing it in place would
+        leave the raw artefact and the printed sheet disagreeing — which is the
+        2026-09-03 defect exactly."""
+        content = self._with_a_credit(HER_TEXT, "From The Secret Garden")
+        with_the_source_in_place(content, "reading_comprehension", held(), "use_exactly")
+        assert content["passage"]["source_note"] == "From The Secret Garden"
+
+    def test_a_sheet_with_no_credit_line_is_not_copied_for_nothing(self):
+        """Cheap, and it keeps the common path free of a deep copy of the whole
+        reply on every single sheet."""
+        content = reading(HER_TEXT)
+        outcome = with_the_source_in_place(
+            content, "reading_comprehension", a_scan(), "questions_from"
+        )
+        assert outcome.content is content

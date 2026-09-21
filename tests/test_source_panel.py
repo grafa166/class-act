@@ -13,7 +13,8 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from planning.scheme_intake import UnreadableUploadError, blocks_for_upload
-from source_panel import ACCEPTED_FILES, _the_pages_she_wants
+from planning.source_material import SourceMaterial, actions_for
+from source_panel import ACCEPTED_FILES, _her_choice_moved, _the_pages_she_wants
 
 APP = pathlib.Path(__file__).resolve().parent.parent / "app.py"
 PANEL = pathlib.Path(__file__).resolve().parent.parent / "source_panel.py"
@@ -517,3 +518,57 @@ class TestRegenerateReplaysEveryInput:
             "these are read back on Regenerate but never stored, so they come "
             f"back empty: {sorted(read_but_never_written)}"
         )
+
+
+class TestWhenWhatSheAskedForIsNoLongerOnOffer:
+    """Her choice can change itself, and until now it did so in silence.
+
+    Measured 2026-09-21 by driving a real radio: pick *use the source exactly*
+    while her text is pasted in, then upload a photograph of the page, and
+    Streamlit finds the stored choice is not among the three a photograph
+    allows, drops it, and falls back to the first on the list. Nothing crashes.
+    She simply asked for one kind of sheet and is now getting another.
+
+    ⚠️ The same thing happens with no upload at all — switching from a reading
+    comprehension sheet to a fill-in-the-gaps one takes *use exactly* away too
+    — so the sentence names what moved rather than blaming the photograph.
+    """
+
+    WHAT_A_PHOTOGRAPH_ALLOWS = actions_for(
+        "reading_comprehension",
+        SourceMaterial(text="", origin="page.jpg", blocks=({"type": "image"},)),
+    )
+
+    def test_nothing_is_said_while_what_she_picked_is_still_offered(self):
+        assert _her_choice_moved("adapt", self.WHAT_A_PHOTOGRAPH_ALLOWS) == ""
+
+    def test_nothing_is_said_before_she_has_picked_anything(self):
+        assert _her_choice_moved(None, self.WHAT_A_PHOTOGRAPH_ALLOWS) == ""
+
+    def test_it_says_which_choice_of_hers_went_away(self):
+        said = _her_choice_moved("use_exactly", self.WHAT_A_PHOTOGRAPH_ALLOWS)
+        assert "Use the source exactly" in said, said
+
+    def test_it_says_what_she_is_getting_instead(self):
+        """⚠️ Named from what is actually offered, not written out by hand:
+        Streamlit falls back to the first option, so the sentence has to follow
+        the list rather than a copy of it."""
+        said = _her_choice_moved("use_exactly", self.WHAT_A_PHOTOGRAPH_ALLOWS)
+        first = next(iter(self.WHAT_A_PHOTOGRAPH_ALLOWS.values()))
+        assert first in said, said
+
+    def test_the_sentence_is_shown_on_the_screen_and_not_just_computed(self):
+        """A message nothing renders is the silence it was written to fix."""
+        source = PANEL.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        rendered = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and any(
+                isinstance(inner, ast.Name) and inner.id == "moved"
+                for inner in ast.walk(node)
+            )
+        ]
+        assert rendered, "the panel works out that her choice moved and says nothing"

@@ -827,6 +827,29 @@ MUTATIONS = {
         "                unreadable = _take_the_upload(upload, box, scan, came_from)",
         "            unreadable = _take_the_upload(upload, box, scan, came_from)",
     ),
+    "\U0001F6A8 LOOSE: the credit line the model invented is printed under her passage": (
+        "planning/source_material.py",
+        "    content = _without_the_invented_credit(content, worksheet_type)",
+        "    content = content",
+    ),
+    "the credit line is cleared by editing the reply she was handed": (
+        "planning/source_material.py",
+        "    without = copy.deepcopy(content)\n"
+        "    without[section][THE_CREDIT_LINE] = \"\"\n"
+        "    return without",
+        "    block[THE_CREDIT_LINE] = \"\"\n"
+        "    return content",
+    ),
+    "nothing says her choice moved when it is no longer offered": (
+        "source_panel.py",
+        "    if not before or before in offered:\n        return \"\"",
+        "    if True:\n        return \"\"",
+    ),
+    "the moved-choice sentence is worked out and never shown": (
+        "source_panel.py",
+        "            st.info(moved)",
+        "            pass",
+    ),
     "a rerun empties the box she has been typing in beside the PDF": (
         "source_panel.py",
         "    if st.session_state.get(came_from) != stamp:",

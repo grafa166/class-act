@@ -370,6 +370,10 @@ WHERE_THE_PROSE_GOES = {
 # rewrite, so putting her original back would throw the work away.
 REPRODUCES_HER_TEXT = ("use_exactly", "questions_from", "scaffolds_around")
 
+# The little italic line the page draws under a passage — the template asks the
+# model for it as "'Adapted from...' or null if original".
+THE_CREDIT_LINE = "source_note"
+
 # ⚠️ **Both measured, and neither is a matter of taste.**
 # `scripts/measure_source_drift.py`, run 2026-09-16 over the four probe replies
 # and 133 saved replies:
@@ -565,6 +569,46 @@ def _vocabulary_flags(content, printed):
     )
 
 
+def _without_the_invented_credit(content, worksheet_type):
+    """Drop the attribution the model wrote under a passage that is hers.
+
+    🚨 **Measured, and it is the only evidence there is.** The one reply ever
+    generated from a supplied text came back with *"From The Secret Garden by
+    Frances Hodgson Burnett"* under the passage
+    (`live-runs/2026-09-15-232726-probe-source-types/`). That line is correct,
+    and it is correct because the model **recognised the book** — which is the
+    same mechanism that names the wrong one on a text it half recognises. The
+    template asks for it as *"'Adapted from...' or null if original"*, nothing
+    here can check it, and it prints in italics under the passage thirty
+    children read.
+
+    ⚠️ **Dropped, not corrected.** The honest alternative would be to write the
+    origin there — but the origin is a file name and a page range, which is not
+    something that belongs on a child's worksheet. The only person who knows
+    what the book is is her, and the screen already tells her where the passage
+    came from.
+
+    Without a source this does nothing: the passage is then the model's own
+    invention and so is the line under it, and there is nothing here that makes
+    one more honest than the other.
+    """
+    where = WHERE_THE_PROSE_GOES.get(worksheet_type)
+    if where is None:
+        return content
+
+    section, _ = where
+    block = content.get(section)
+    if not isinstance(block, dict) or not block.get(THE_CREDIT_LINE):
+        return content
+
+    # Copied rather than edited: the caller keeps the reply it was handed, so
+    # the raw artefact and the printed sheet cannot quietly stop being the same
+    # object — which is the 2026-09-03 defect exactly.
+    without = copy.deepcopy(content)
+    without[section][THE_CREDIT_LINE] = ""
+    return without
+
+
 def with_the_source_in_place(content, worksheet_type, source_material, source_action):
     """Her text back on the page, or a refusal that names what went wrong.
 
@@ -582,6 +626,8 @@ def with_the_source_in_place(content, worksheet_type, source_material, source_ac
     """
     if source_material is None:
         return SourceOutcome(content=content)
+
+    content = _without_the_invented_credit(content, worksheet_type)
 
     # A PDF or a photograph: Claude can read it, we cannot. There is no
     # haystack, so there is nothing to claim.

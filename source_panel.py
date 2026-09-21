@@ -20,6 +20,7 @@ stays the one definition of it instead.
 import streamlit as st
 
 from planning.source_material import (
+    WORKSHEET_ACTIONS,
     SourceMaterialError,
     actions_for,
     pages_in,
@@ -93,6 +94,28 @@ def _take_the_upload(upload, box, scan, came_from):
         st.session_state[box] = ""
         st.session_state[scan] = material
     return None
+
+
+def _her_choice_moved(before, offered):
+    """What to say when what she picked is no longer one of the choices.
+
+    ⚠️ Measured 2026-09-21: pick *use the source exactly* with her text pasted
+    in, then upload a photograph of the page, and Streamlit finds the stored
+    choice missing from the three a photograph allows, drops it, and falls back
+    to the first on the list. Nothing crashes — she asked for one kind of sheet
+    and is quietly getting another.
+
+    The fallback is Streamlit's, so the sentence reads the offered list rather
+    than naming a replacement of its own: a second opinion about which option
+    she ends up on is a second thing to get wrong.
+    """
+    if not before or before in offered:
+        return ""
+    became = next(iter(offered.values()), "")
+    return (
+        f"'{WORKSHEET_ACTIONS.get(before, before)}' is not something this kind of sheet "
+        f"can do with what you have supplied, so this has moved to '{became}'."
+    )
 
 
 def _is_a_pdf(filename):
@@ -250,6 +273,12 @@ def source_panel(namespace, worksheet_type):
                 "There is nothing this kind of sheet can do with a text like that."
             )
             return None, None
+
+        moved = _her_choice_moved(st.session_state.get(chosen), offered)
+        if moved:
+            # Read before the radio is drawn: the widget is what drops the
+            # stale value, so after it there is nothing left to notice.
+            st.info(moved)
 
         action = st.radio(
             "What should it do with your text?",
