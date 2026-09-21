@@ -198,11 +198,12 @@ def generate_structured_content(
 
 
 def generate_worksheet_content(
-    prompt: str,
+    prompt,
     model: str = DEFAULT_MODEL,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     timeout: Optional[float] = None,
     subject: str = "English",
+    stream: bool = False,
 ) -> dict:
     """
     Send a prompt to Claude and return parsed JSON worksheet content.
@@ -212,8 +213,11 @@ def generate_worksheet_content(
     response parsing, including extracting JSON from markdown code blocks.
 
     Args:
-        prompt: The full prompt string to send to Claude. Should include
-            instructions for JSON output format.
+        prompt: Either the full prompt string, or a list of content blocks with
+            the instruction text last. The list form is what carries a PDF or a
+            photograph of the teacher's own text alongside the instructions;
+            documents and images go *before* the text, which is the ordering
+            `_request_json` documents.
         model: The Claude model to use. Defaults to claude-haiku-4-5-20251001
             for fast, cost-effective generation.
         max_tokens: Maximum number of tokens in the response. Defaults to 4096.
@@ -221,6 +225,13 @@ def generate_worksheet_content(
             client default (60s).
         subject: The curriculum subject (e.g. "English", "Maths", "Science").
             Used to tailor the system prompt for better subject-specific output.
+        stream: Receive the reply as it is written rather than in one piece.
+            ⚠️ Set it whenever the reply may be long. Checked against the
+            Anthropic API reference on 2026-09-18: a reply above roughly 16,000
+            output tokens has to be streamed or the server closes the
+            connection -- which is what happened to this app on 2026-09-02. The
+            reply is still assembled and returned whole; nothing above this
+            function sees a stream.
 
     Returns:
         A dictionary containing the parsed worksheet content matching the
@@ -246,6 +257,7 @@ def generate_worksheet_content(
         model,
         max_tokens,
         timeout,
+        stream,
     )
 
 

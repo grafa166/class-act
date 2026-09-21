@@ -227,6 +227,12 @@ def generate_problem_solving_worksheet(
     passage_data = {
         'title': scenario.get('title', ''),
         'text': scenario.get('text', ''),
+        # Where the text came from, printed under it exactly as the reading
+        # sheet does. Dropped here until now, so a word-problem sheet built
+        # from the teacher's own text said nothing about where it came from.
+        # Reads an existing key rather than adding one, so `RENDERED_KEYS` is
+        # unaffected.
+        'source_note': scenario.get('source_note', ''),
     }
     add_reading_passage(doc, passage_data, theme_key, level)
 

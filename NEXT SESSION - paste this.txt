@@ -1,74 +1,524 @@
-We are continuing Plan mode for Class Act — a lesson planner for a Year 3 teacher
-(ages 7–8) at St Anthony's Catholic Primary, Bromley. One-form entry, many EAL and
-SEND pupils, mixed ability, low-motivation intake.
+We are continuing Class Act — a lesson planner and worksheet generator for Alexandra, a Year 3
+teacher (ages 7–8) at St Anthony's Catholic Primary, Bromley. One-form entry, many EAL and SEND
+pupils, mixed ability, low-motivation intake.
 
-Work in /Users/graemeheerden/Documents/Claude Code /Class Act, on branch plan-mode.
-Run Python with .venv/bin/python. 813 tests pass. Everything is uncommitted and
-intentionally so — don't stash, revert or commit it without asking.
+Work in /Users/graemeheerden/Documents/Claude Code /Class Act, on branch plan-mode. Run Python
+with .venv/bin/python. **1,363 tests pass.**
 
-Read these two first, and don't re-litigate decisions recorded in either:
+🚨 **THE WHOLE SOURCE-MATERIAL FEATURE WENT LIVE ON 2026-09-21, IN THE EVENING, WITH GRAEME'S
+GO-AHEAD.** Everything described below is now committed on `plan-mode` and `main` and pushed —
+`main` is production, so **she has it**. That is a change of state from every earlier version of
+this file: the work is no longer "only on this laptop". Anything you add is uncommitted again —
+**do not stash, revert, commit or push without asking.**
 
-HANDOVER.md in that repo — full state, what is built, what's next
-/Users/graemeheerden/.claude/plans/yup-is-it-listening-smooth-frost.md — the approved
-plan, including a section on what an adversarial review already killed
+🚨 SHE IS A LIVE USER. The app is deployed at class-act.streamlit.app, she has been using it
+daily, and it deploys from `main` — so `main` is production. A push reboots her app, and because
+saving is deliberately switched off, a reboot mid-unit throws away the sequence she approved and
+every lesson written since. Do not push to `main` during the school day. Batch changes for the
+evening. (App password is in the Streamlit Secrets box; it is not in the repo and must never be.)
 
-Last session closed out three things. The worksheet guard that had refused correct
-work four times now asks once more instead of throwing the sheet away, with the search
-left exactly as strict as it was — across three full live runs the worksheets came out
-10 of 10 with four second attempts fired and all four successful, and the last run was
-the first ever with nothing lost at all. The lesson plan is now a Word document she can
-download and actually edit — no tables, twelve named styles, Arial, black and blue.
-And Comic Sans and the six-colour word-type scheme are retired across all ten worksheet
-generators, with the symbols and labels carrying what the colours used to.
+READ THESE THREE FIRST, in this order, and do not re-litigate anything recorded in them:
 
-Pick up at step 1 of "What's next" in the handover: a schema for the worksheet path,
-one per worksheet type. This was deliberately NOT done when the lesson path got its
-schema, and the reason is in the handover — three of the four worksheet defects were the
-guard refusing correct work because the same content legitimately comes back in different
-shapes (a cloze passage as `paragraphs`, a word-bank sentence as fragments with the gaps
-between them). A single closed schema would not merely refuse those shapes; with
-additionalProperties: false it would make them impossible to write, and there would be no
-artefact left to diagnose from. Read each type's real shape off the saved replies in
-live-runs/ before writing anything. A test currently asserts the worksheet path sends no
-schema, so this cannot happen by accident.
+1. /Users/graemeheerden/.claude/plans/use-coddex-and-plan-federated-fog.md — THE APPROVED PLAN for
+   the source-material feature. Read it in full. ✅ **Its Phases 0–4 are DONE.** Read Decision 1
+   (held text vs a scan) and Decision 3 (one prompt seam) before touching uploads — your task
+   lives inside Decision 1. ⚠️ **Five of its statements have since been corrected by measurement —
+   see "WHERE THE PLAN IS NOW WRONG" below.** Everything else in it stands.
+   ⚠️ **The page picker you are building is NOT in that plan.** It comes from what Alexandra said on
+   2026-09-21; the plan predates her answer and assumed whole-file uploads throughout.
+2. HANDOVER.md in the repo — the full history of the app before this feature: what is built, the
+   working rules, and every defect found the hard way. ⚠️ It stops before the source-material work;
+   this file is the record for that.
+3. /Users/graemeheerden/.claude/plans/yup-is-it-listening-smooth-frost.md — the original project
+   plan (the planner itself, not the source feature), including what an earlier adversarial review
+   killed. Read it for the standing decisions: **White Rose is the only locked scheme** · **publisher
+   content is never reproduced** · **no AI judging AI** · **deterministic checks only** · and that
+   **uploading and photographing a plan was designed in from the start** (Phase 2, "bring your own
+   scheme") — *"a photocopy in a folder is the realistic case"*, which is why a scan is accepted at
+   all and why cutting it to a page range is the right fix rather than rejecting it.
 
-Six working rules that have earned their place, all the hard way:
+═══════════════════════════════════════════════════════════════════════════════
+WHAT WE ARE BUILDING, AND WHY
+═══════════════════════════════════════════════════════════════════════════════
 
-TDD genuinely — write the failing test, confirm it fails for the reason you expect, then
-implement. Then run the positive control: scripts/mutate.py breaks each guard in turn and
-prints which tests notice. A mutation nothing catches is the finding. It has now caught
-four tests that passed either way and one guard with no test at all.
+Alexandra asked for one thing and called it "game changing": let her upload a document or paste a
+text excerpt as SOURCE MATERIAL, then choose what the app does with it.
 
-A test cannot see a prompt defect. Run the whole flow against the real API before
-trusting it — spine, then lessons, then worksheets, not one step of it. Thirteen defects
-have been found this way and none were reachable from a test. scripts/live_run.py does
-this and writes every request, schema and raw reply to live-runs/<timestamp>/ before
-anything is parsed, and now records every second attempt and whether it worked.
+- Worksheets: use the source exactly · simplify/adapt it · create questions from it · create
+  scaffolds around it.
+- Lesson plans: base the lesson on it · adapt it for teaching · create scaffolds/tasks/questions
+  from it · plan a sequence of lessons from it.
+- 🔴 **Her one hard constraint, in her words:** "if I upload only part of a story/text, the lesson
+  planner should only use what I've supplied and not assume or reveal later parts."
 
-Read the artefact before changing anything. Three worksheet defects produced an identical
-error message and had three different causes. Reading a rendered lesson plan found two
-styles sharing a name they shouldn't; reading a rendered worksheet found sheets still
-telling children to match colours that no longer existed. Neither was visible to any test.
+Two decisions taken with Graeme 2026-09-15, do not reopen:
+- Verbatim reproduction of HER OWN supplied text IS allowed. The standing "publisher content is
+  never reproduced" rule is about the app shipping White Rose/Boost material it does not own.
+- Worksheets ship first, then the lesson side.
 
-A guard that refuses correct work is worse than no guard — invisible on a green suite,
-and it surfaces as the teacher being told her correct work is wrong. But make a wrong
-guard right; never soften it. Loosening the search is still the tempting fix and it is
-still wrong: a positive control showed that accepting a long enough run of a quote breaks
-six tests, because a paraphrase and a fabrication look identical from there. This cuts
-both ways — a no-colour test written last session would have deleted the correct
-UK-spelling instruction, and had to be narrowed before it shipped.
+═══════════════════════════════════════════════════════════════════════════════
+✅ ANSWERED 2026-09-21 — WHAT HER MATERIAL ACTUALLY IS
+═══════════════════════════════════════════════════════════════════════════════
 
-A refusal the model will read is an instruction, not a description. One that merely
-describes what the model chose to do gets an identical reply back; one that names only
-the first fault it met gets that one fixed and loses the work to the second. There is
-one repair, so a refusal has to name everything wrong, say what would fix it, and carry
-the numbers the fix needs.
+Relayed by Graeme on 2026-09-21, in her terms. ⚠️ **Reported, not heard from her directly** — he
+answered the question I had written for her. Treat as her requirements as he understands them.
 
-Check current API guidance before changing how a call is made, rather than guessing.
+- **English is usually a scan or photo of the book pages, saved as a PDF.** Sometimes a Word or PDF
+  document, sometimes text pasted straight in. 🚨 **So the scan route is the PRIMARY one, not the
+  fallback** — and it is exactly the route where the app never holds the words, so **the name check
+  built in Phase 4 cannot run on most of her English material.**
+- 🔴 **"I wouldn't usually upload a whole chapter. Quite often I'd only want to upload a few pages or
+  a specific extract because I reveal the text gradually across lessons and only want the planner to
+  use what the children have reached so far."** That is her one hard constraint restated as a
+  *feature request*, and it is a better defence than any check: **if only the pages they have reached
+  are sent, the app physically cannot reveal what comes later.**
+- **Length: a few pages or one short chapter**, rarely more. ✅ **`MAX_SOURCE_CHARS` (16,000 chars,
+  ~4,000 words) is therefore correctly sized — that open question is CLOSED.** It governs held text
+  only; a PDF has no character limit on our side.
+- **For planning a whole lesson sequence she might upload the whole text — a full-length book.**
 
-Graeme is not a coder. Updates go: what's true now, anything blocked on him, then always
-what's next. No file names, no jargon, no commit references.
+🔴 **Graeme's rulings, 2026-09-21** (his, not hers — he answered a question I had addressed to her):
+1. **Build the page picker on worksheets.** That is the task below.
+2. **The planner may see the whole book** for sequence planning; the gradual reveal is about what the
+   children meet, not what she plans from.
 
-One thing outstanding for him, not for you: he cannot open .docx on this machine, so
-whether the Word output is genuinely editable in Word is still unverified. Don't treat
-it as confirmed.
+⚠️ **Ruling 2 is not deliverable as the app stands, and he has been told so.** Measured, not assumed:
+as a **scan** a full-length book breaks the model's page ceiling (see the limits below); as **text** it
+is five to ten times `MAX_SOURCE_CHARS`. Nothing is blocked today because sequence planning is not
+built — carry it as a known gap into that phase, not as a solved decision.
+
+═══════════════════════════════════════════════════════════════════════════════
+📏 THE LIMITS, MEASURED 2026-09-21 — CHECK THESE BEFORE SIZING ANYTHING
+═══════════════════════════════════════════════════════════════════════════════
+
+Read off the Anthropic API reference this session for **the model this app actually calls**, not
+recalled: `claude-haiku-4-5-20251001`, a **200K-context** model.
+
+- **A PDF document block: 32 MB per request, 600 pages — but only 100 pages on a 200K-context
+  model.** So **100 pages is the hard ceiling here.** A photographed book is more than that.
+- **Our own upload cap is 20 MB** (`MAX_UPLOAD_BYTES`, `planning/scheme_intake.py:50`) — tighter than
+  the API's 32 MB, so ours bites first.
+- **`MAX_SOURCE_CHARS` is 16,000** and applies to held text only.
+- **`MAX_REPLY_TOKENS` is 16,384** — an output ceiling, unrelated to the input limits above.
+- ⚠️ A scanned page is an **image**, so a scan costs image tokens per page rather than text tokens.
+  A book-length scan does not fit the context window even below the page ceiling.
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ PHASE 4 IS DONE (2026-09-20/21) — AND TWO THINGS AHEAD OF IT WERE BROKEN
+═══════════════════════════════════════════════════════════════════════════════
+
+**The worksheet slice is now complete and she can use it.** `planning/source_names.py` ships
+report-only, wired into `app.py`, with 47 tests and 16 mutations, every one caught by the test
+that claims it. **Do not re-litigate the detector's rules** — every one of them was forced by a
+measurement recorded below.
+
+🚨 **TWO FAULTS AHEAD OF PHASE 4, BOTH FOUND ON 2026-09-20, BOTH IN A TREE WITH 1,267 TESTS
+PASSING, AND EITHER ONE ALONE MEANT SHE COULD NOT GENERATE A SINGLE SHEET.**
+`app.py` called `room_for_the_source` and `request_with` and **imported neither** — a `NameError`
+on every press of Generate, source or no source — and it handed `room_for_the_source` its
+arguments in the wrong order, which reaches `source_action.is_held` and dies inside the bare
+`except Exception` as *"an unexpected error occurred"*. 🔑 **Neither was reachable from any test
+in this repo, because `app.py` is read as *text* everywhere and text cannot see an unbound name
+or a swapped argument.** Both are now pinned by `TestTheWiringItselfHoldsTogether` in
+`tests/test_source_panel.py`, which reads the call sites against the real `inspect.signature`, and
+both have a mutation. ⚠️ **If you add a call into `planning/source_material.py` or
+`planning/source_names.py` from `app.py`, that guard is what checks it.**
+
+**What the detector does, and the one promise it makes.** No deterministic check can prove a text
+is spoiler-free — *"Later, Alice discovers the key belongs to her father"* uses only names the
+extract already contains. What is testable is narrower: **content that introduces a named entity
+absent from her text**, and `THE_HONEST_LABEL` says exactly that, pass or fail, and never more.
+Nothing refuses. Findings are `(where, reason)` pairs, the shape `lowered_objective_flags` uses.
+
+🔑 **`names_checked` IS A SECOND, INDEPENDENT AXIS FROM `source_checked` AND MUST NOT BE FOLDED
+INTO IT.** `source_checked` asks whether her passage was compared with what got printed, which
+only reading comprehension and problem solving do at all. `names_checked` asks whether the names
+were compared with her text, which **every** sheet can do as long as we hold her words. A cloze
+sheet is `source_checked=False` with a reason and `names_checked=True`. ⚠️ The old caption helper
+returned early on the unchecked branch, which swallowed **every** finding on the five types that
+build from her text rather than printing one. Fixed, and pinned by three AST tests.
+
+═══════════════════════════════════════════════════════════════════════════════
+WHAT THE CORPUS MEASURED — `scripts/sweep_unseen_names.py`, NO API CALLS
+═══════════════════════════════════════════════════════════════════════════════
+
+🚨 **It cannot tell you the detection rate.** Not one of the 133 saved replies was generated from
+a teacher's source, so there is no case in the corpus where a name *should* be caught. It is a
+**false-refusal census and nothing else**, and it is blind to `reading_comprehension` and
+`problem_solving`, which have **zero** samples and are the two types this feature rests on.
+
+**On the 54 worksheet replies — the only surface Phase 4 renders on — 72 candidates, 40 of them
+unsupported, across 23 of 54 replies. It started at 1,183.** Every reduction was a structural
+rule, not an entry on a word list. In order, each one measured before it was written:
+
+1. **A shouted word is not evidence.** `SEND` in 56 replies and `EAL` in 53, plus `HARD`, `SOFT`,
+   `NOT`, `ONE`, `ARE`. This is the plan's ALL-CAPS *segment* veto applied one level down, and it
+   **replaces** it — a rule reaching a shouted word inside ordinary prose already reaches every
+   word of a shouted line, and keeping both would leave the outer one untestable.
+2. **A spaced dash and a pipe end a segment.** *"Hook - What is a rock?"*, *"Rock name |
+   Scratches?"* — both doing a full stop's job.
+3. **A run followed by a number is furniture.** `Step 3`, `Year 3`, `Activity 1`, `Lesson 1`.
+   Worksheets number everything and nobody numbers a person.
+4. **The subject is hers**, derived from `SUBJECT_REGISTRY` — `English` alone was in 47 replies.
+5. 🔑 **A vetoed heading may not vouch for the word it capitalised.** This was the single largest
+   remaining cause: a heading capitalises every word it has, so its second and third words are
+   mid-sentence *by position* and say nothing *by convention* — and they were corroborating the
+   very headings the title-case veto had just thrown out. `Hook`, `Plenary`, `Practice`,
+   `Modelling`, `Is`, `Hard`, `Smooth`, `Soft` all died with this one line.
+6. **A run of nothing but English function words names nothing.** 🔑 **This is the one list in
+   the module allowed to be a list, and the reason is that it is a closed class.** The plan is
+   right that the words opening an instruction cannot be enumerated; articles, pronouns,
+   auxiliaries, interrogatives, conjunctions and quantifiers are the opposite.
+
+⚠️ **`is` was in the minor-word set and that was a false PASS.** Title case capitalises verbs, so
+*"Who is Alice?"* read as a heading and was vetoed whole — a comprehension question about a name
+nobody supplied, silently accepted. Verbs are not minor words however short they are.
+
+⚠️ **TWO KNOWN FALSE POSITIVES ARE LEFT STANDING, DELIBERATELY.** A title-cased phrase naming a
+section (*"Hardness Challenge section"*) survives because the lower-case noun after it breaks the
+heading veto. An adjective in a slash-separated column (*"Rock name / Rough / Smooth"*) survives
+because **a slash is deliberately NOT a boundary**: making it one was tried and rejected, because
+it costs the second half of `[Ben/Dickon]` on a cloze sheet, and that is a false *pass*. Both live
+on the lesson surface, which nothing checks until Phase 5.
+
+**What the positive control found that the tests could not.** ⚠️ The `I` rule — excluding the
+first-person pronoun from counting as a capital — was **dead code**, fully subsumed by the
+function-word rule, and its mutation reported `NOTHING FAILED`. Deleted, one mechanism left. And
+`test_a_name_is_not_supported_by_a_word_it_merely_sits_inside` used `Alice` against `Alicia`,
+where `alice` is not a substring of `alicia` either — so it passed whole-word or substring alike
+and its mutation was invisible. **A fixture that does not contain the thing being varied measures
+nothing**, again. It is now `Mary` against `Maryland`, plus the reverse direction.
+
+**And what only a realistic sheet found.** Running a real reading-comprehension reply through the
+whole chain surfaced `Mrs. Medlock` arriving as **two** findings, because the full stop broke the
+run — and `Mrs` alone would then fire on any extract that happens not to use it. An honorific is a
+closed class; it is supported, and an abbreviation's own full stop no longer ends a name.
+
+═══════════════════════════════════════════════════════════════════════════════
+WHAT IS ALREADY BUILT (all uncommitted, 2026-09-16 → 09-18)
+═══════════════════════════════════════════════════════════════════════════════
+
+**`planning/source_material.py` (new)** — the whole source model.
+`SourceMaterial(text, origin, blocks)` with `.is_held` derived, not flagged · `MAX_SOURCE_CHARS`
+16,000 · `SOURCE_CAPABILITY` (reading_comprehension + problem_solving print the source; cloze,
+word_bank, sentence_builder, matching, investigation build from it; the three drills take none) ·
+`actions_for` · `check_the_pairing` · `source_from_text` · `read_upload` · `as_paragraphs` ·
+`how_much_of_it_is_hers` · `with_the_source_in_place` · `vocabulary_not_in_the_passage` ·
+`room_for_the_source` · `request_with`.
+
+`SourceOutcome` carries `content`, `source_checked`, `substituted`, `similarity`, `origin`,
+`flags`, `why_not_checked`. ⚠️ `source_checked` must never be optimistic and `why_not_checked`
+must never be empty when it is False — "checked and fine" and "not checked at all" must not
+render the same.
+
+**The two thresholds are measured, not chosen** — `scripts/measure_source_drift.py`, no API calls.
+Over the four probe replies and 133 saved replies: every reply written without her text scored
+**0.000–0.032**; every genuine reproduction, drift and all, **0.972–1.000**; a hand-written Year 3
+rewrite **0.570**. So: refuse below **0.10**, substitute at or above **0.90**, flag between.
+
+**Phase 3 is wired.** `source_panel.py` at repo root (precedent: `access.py`). Seven edits in
+`app.py`: two imports · the panel call after the theme preview · `source_material` and
+`source_action` in the `generation_params` literal · two kwargs on `get_prompt` ·
+`check_the_pairing` before a token is spent · one unconditional `with_the_source_in_place` after
+`validate_worksheet_content` · `except SourceMaterialError`. `generate_worksheet_content` gained
+`stream` and now accepts content blocks.
+
+**Phase 3a, first half.** The vocabulary check ships.
+
+**Pre-existing defect fixed.** `add_reading_passage` split on a blank line and only on a blank
+line, so a passage using single newlines rendered as one wall of text. It now uses the same
+`as_paragraphs` rule that tidies her pasted text — one definition, imported lazily inside the
+function to avoid a cycle (`generators/components.py`). `generators/problem_solving.py` now
+carries `source_note` through.
+
+**Phase 4 ships.** `planning/source_names.py` + `scripts/sweep_unseen_names.py`, and two new
+fields on `SourceOutcome` — `names_checked` and `why_names_not_checked`. `app.py` gained one
+import, one `with_the_names_checked(...)` call after `with_the_source_in_place`, and a rewritten
+caption helper. Plus the two wiring fixes above.
+
+**Tests: 240 across six files** — `test_source_prompts.py` (81), `test_source_in_place.py` (58),
+`test_source_names.py` (47), `test_source_panel.py` (23), `test_source_material.py` (25),
+`test_passage_paragraphs.py` (6).
+
+**Mutations: 119 in `scripts/mutate.py`, 59 of them touching this feature** (31 source material,
+16 source names, 12 app.py), **every one caught by the test that claims it.** ⚠️ Filtered runs
+only — `mutate.py source_names.py` and `mutate.py app.py`, both clean. **A full run has still
+never completed** and is still the one that has to be clean before anything ships.
+
+═══════════════════════════════════════════════════════════════════════════════
+WHERE THE PLAN IS NOW WRONG — measured, do not re-decide
+═══════════════════════════════════════════════════════════════════════════════
+
+🚨 **1. `adapt` must never refuse.** The plan implies the ignored-source refusal applies to every
+action. Measured 2026-09-18: "The exhausted infant slumbered peacefully." rewritten as "The tired
+baby slept well." — a correct Year 3 simplification — shares **no word pair** with the original
+and is indistinguishable from a sheet that ignored the source. There is no threshold that
+separates them. An adaptation is **flagged, never refused**. A test asserting the opposite was
+deleted; its replacement records why.
+
+🚨 **2. The vocabulary check is "in the passage printed", not "in her text", and it refuses only
+when we substituted.** The plan says every vocabulary word must appear in *her text*. Under
+*simplify or adapt* the printed passage is the model's rewrite, so "in her text" would refuse
+correct work on the one action whose whole point is that the words change. "In what is printed" is
+identical for the three reproducing actions and right for the fourth. It **refuses only when her
+text was substituted** — that is the one path where the app itself could have made the box
+describe a passage we deleted — and **flags otherwise**, because throwing away a sheet we did not
+alter over a word form is the worse failure.
+⚠️ Matching allows inflections and forbids fragments: whole word, **or** a page word that starts
+with it and at least four letters. `servant` beside `servants` is findable; `ant` is not.
+
+⚠️ **3. The lesson-page uploader gate is not `scheme is not None`.** The plan's line number is
+right — `pages/2_Lesson_Plans.py:962` — but the condition is
+`anchor.teacher_supplies_content and not is_locked(anchor.subject)`. The Phase 5 point stands
+(English cannot upload today); the condition to work around is that one.
+
+⚠️ **4. The corpus is 133 saved replies, not ~50.**
+
+⚠️ **5. The plan's two whole-segment vetoes are one veto and one token rule.** It names ALL-CAPS
+and fully-title-cased as a pair. Measured 2026-09-20: shouting is far more often a single word
+inside ordinary prose (`SEND`, `EAL`, `HARD`) than a whole shouted line, and a rule that reaches
+the word already reaches every word of the line. Keeping both would leave the outer one
+untestable — a guard whose mutation goes quiet is a guard nobody is checking. The title-case veto
+is a whole-segment veto exactly as the plan has it, and it is load-bearing.
+
+═══════════════════════════════════════════════════════════════════════════════
+WHAT THE POSITIVE CONTROL AND A CODEX REVIEW FOUND — all fixed, all now pinned
+═══════════════════════════════════════════════════════════════════════════════
+
+🚨 **The comparison could not read half of English, and failed in both directions.** The first
+tokeniser matched `[a-z0-9']`, silently dropping curly apostrophes, every accented letter and
+every non-Latin script. Measured: a passage reproduced perfectly but with its apostrophes curled
+scored **0.000 and was refused** — and curling quotes is the single most ordinary thing a model
+does to prose. Two unrelated Chinese passages scored **1.000** and would have been substituted.
+Fixed by normalising typography (`_TYPOGRAPHY`) and matching `[\w']+`.
+
+🚨 **A fixture that does not contain the thing being varied measures nothing.** The drift census
+had a "typography tidied" row that curled apostrophes in an extract containing none. It reported
+1.000 for three days while the real case scored 0.000. `TYPOGRAPHY_AND_SCRIPT` in
+`scripts/measure_source_drift.py` exists because of that and runs against text that actually has
+apostrophes, accents and another script.
+
+🚨 **A PDF reached the model as an empty box with rules pointing into it.** `get_prompt` printed
+`<<<SOURCE\n\nSOURCE>>>` for a non-held source and then told the model to take every question and
+every vocabulary word from between those markers. `SOURCE_ATTACHED` in `llm/prompts.py` now names
+the attached document instead and says what "the text between the markers" means when there are
+none.
+
+⚠️ **A short reproduction has no word pairs.** "Go!" reproduced as "Go!" scored 0.000 and was
+refused. There is a single-word fallback when neither side yields a pair.
+
+⚠️ **Removing an upload left the old PDF attached.** A scan lives in session state rather than in
+the box on screen, so the next sheet was still built from a document she had taken away, with
+nothing saying so. `source_panel.py` clears it.
+
+**Nine tests were passing for the wrong reason, every one found by `scripts/mutate.py`:** an
+abridged fixture that made a metric swap invisible · a cloze fixture with nothing to compare · two
+adaptation tests that passed with the rule disabled · a dead clamp · a flag asserted to exist but
+not to be the right one · three aliased sentences · and a test that called the guard and asserted
+nothing at all. **Expect this class of thing and run the control.**
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ THE PAGE PICKER IS BUILT AND LIVE (2026-09-21) — DO NOT RE-LITIGATE IT
+═══════════════════════════════════════════════════════════════════════════════
+
+**43 new tests, 11 new mutations, every one caught by the test that claims it.** The spec that
+was written for it is kept below, unchanged, because every line of it was followed and the
+reasoning is worth having. What was actually built:
+
+- **`pages_in(filename, data)`** — page count, or `None` for anything that is not a PDF **and for
+  a PDF nothing here can open**. ⚠️ That second case is deliberate and it is the false-refusal
+  direction: her English material is scans, and a scanner whose output pypdf cannot parse must not
+  cost her the upload. No count ⇒ no picker ⇒ the file goes whole, exactly as it did before, and
+  the panel says so on screen rather than letting the control vanish silently.
+- **`cut_to_pages(data, first, last)`** — the bytes, narrowed, before any block is built. Refuses a
+  range the document does not have (naming the real page count), one that runs backwards, and one
+  over **`MAX_PAGES_AT_ONCE = 100`** (naming the run that would fit).
+- **`read_upload(filename, data, pages=None)`** — cut first, then `blocks_for_upload`, so there is
+  still exactly one definition of how an upload becomes blocks. `origin` becomes
+  `"chapter-1.pdf, pages 4–6"`, which is what `_say_what_was_done_with_her_text` prints above
+  every sheet — the only place the narrowing is visible to her.
+- **`source_panel._take_the_pdf`** — runs on **every rerun**, not once per file. ⚠️ Measured
+  2026-09-21 on an 18.8 MB, 120-page PDF: counting takes **5 ms** and cutting three pages **1 ms**,
+  so there is nothing to cache and no stamp to get wrong. The box-clearing *is* still stamped once
+  per file, because a rerun must not wipe what she typed beside it. Widget keys carry the file, so
+  swapping a long PDF for a short one cannot leave a page number the new file does not have.
+- **`pypdf` is in `requirements.txt`**, not the dev list. Proved both ways in a clean environment
+  built from that file alone: without it the app does not start at all, with it everything loads.
+
+🔑 **`tests/test_page_picker_runs.py` is the test that matters and it is a new shape here.**
+`AppTest.from_function` runs the panel's PDF path as a real script with a stand-in upload, sets the
+page numbers the way she would, and reads back the base64 that would travel. **The AST tests could
+not see the defect** — a cut made once at upload is byte-identical in the source to one made every
+rerun. The mutation `the page cut is made once at upload instead of on every rerun` is caught by
+**five** of those behavioural tests and by one AST test; before they existed it was caught by one.
+
+⚠️ **The prompt now names the pages** — `SOURCE_ATTACHED` interpolates the origin, so the request
+says *"the document attached to this message (chapter-1.pdf, pages 4–6)"*. That is a description of
+what is attached, not an instruction to use only those pages, and `SOURCE_LAW` already says the
+extract may be part of something longer. **Do not turn it into an instruction** — that is the shape
+the adversarial pass killed.
+
+⚠️ **The 20 MB upload cap now bites AFTER the cut**, so a 30 MB scan narrowed to three pages is
+accepted where the whole file is not. The refusal she meets on a too-large whole file does not
+mention that narrowing would fix it; the picker is on screen above it, so it is discoverable, but
+it could be said outright.
+
+**The spec it was built from, kept for its reasoning:**
+
+🚨 **THE DEFECT IT CLOSED, AS IT READ BEFORE THE BUILD.** If she uploads a PDF the
+worksheet screen sends **the whole file** to Claude — `blocks_for_upload` (`planning/scheme_intake.py:134`)
+base64s the entire document into one `document` block, and nothing narrows it. So a chapter scan
+uploaded for lesson two can be drawn on for lesson six, and **nothing would catch it**, because a
+scan is also the one route where the Phase 4 name check cannot run. Pasted and Word text are fine —
+she edits the box, and the names are checked. **The scan route is her main English route.**
+
+**Why a page picker and not a bigger check.** It fixes the constraint at the source: send only the
+pages the children have reached and the app *cannot* reveal what comes later. 🚨 **DO NOT implement
+this by telling the model "only use pages 4 to 6" in the prompt.** That is exactly the shape the
+adversarial pass killed — her one hard constraint defended by a sentence at the end of a prompt.
+The bytes must not leave the machine.
+
+**Scope: PDFs only.** A `.docx`, `.txt`, `.md` or paste lands in the editable box, which she can
+already cut down by hand. A photograph is a single page, and the uploader takes one file at a time
+(`st.file_uploader` with no `accept_multiple_files`), so there is nothing to choose between.
+
+**The shape to build:**
+
+- **`pypdf`** — cutting a PDF to a page range is structural and works on a scan, which has no text
+  layer to read. ⚠️ **Measured 2026-09-21: `pypdf` is NOT installed and NOT a transitive dependency**
+  (checked against the interpreter, and `requirements.txt` is four lines: streamlit, python-docx,
+  anthropic, python-dotenv). It is pure Python with no compilation, so it is safe for the hosted
+  app — but **`requirements.txt` is the deploy list**, so adding it there is what makes it reach her.
+- **Cut the bytes, then build the blocks.** Take the page range first, hand the narrowed bytes to
+  `blocks_for_upload`. Keep one definition of how an upload becomes blocks.
+- **The origin must name the pages** — `"chapter-1.pdf, pages 4–6"`. `_say_what_was_done_with_her_text`
+  already prints the origin above every sheet, so this is how she *sees* what was sent. Without it
+  the narrowing is invisible and therefore untrustworthy.
+- **An impossible range is refused, naming the real page count** — the existing `SourceMaterialError`
+  path already renders on screen. A range beyond the end, or inverted, says how many pages there are.
+- **Refuse a selection over 100 pages**, per the limits above, naming the number that would fit.
+
+⚠️ **The trap in `source_panel.py`.** `_take_the_upload` stamps `f"{upload.name}:{upload.size}"` in
+session state so it runs **once per file** — that exists to stop a rerun refilling the text box and
+throwing away her edits. **The page cut must happen on every rerun**, not once at upload, or changing
+the range will do nothing. A PDF leaves the box empty, so there is no edit to preserve on that path.
+`upload.getvalue()` is available on every rerun.
+
+**Tests to write first, and the control that matters.** 🚨 **Prove the cut by reading the produced
+PDF back and counting its pages** — asserting the byte count changed measures nothing, and a fixture
+that does not contain the thing being varied is the mistake this repo has now made twice. Build a
+multi-page fixture, cut it, re-open it, count. Then: the origin names the pages · an inverted or
+out-of-range selection is refused and says how many pages exist · a one-page PDF and an image offer
+no picker · a `.docx` and a paste are untouched · the whole file is **not** sent when a range is set.
+Add mutations to `scripts/mutate.py` for each — at minimum a `🚨 LOOSE:` one that ignores the range
+and sends the whole document, because that is the failure that would reach her silently.
+
+═══════════════════════════════════════════════════════════════════════════════
+AFTER THAT
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ **It IS in front of her** — pushed to `main` on the evening of 2026-09-21, which is the plan's
+own instruction at the end of the worksheet slice: *"at the end of this phase she can use it. Stop
+and let her."* 🔴 **Nobody has asked her anything about it yet, and that is the next real input.**
+Phase 7's bars still cannot be measured without source-lane runs.
+
+⚠️ **A full `scripts/mutate.py` run has STILL never completed.** One was started on 2026-09-21 at
+19:58 and interrupted at 23:15 to free the working tree for the commit — **47 of 130 mutations
+ran, 46 caught, and the single `NOTHING FAILED` was the pre-existing, already-recorded one**
+(`the hosted database is given the wrong kind of upsert`, which is unguarded because the suite
+runs against the file database and the saving layer is switched off). 🔑 **Measured: ~4 minutes a
+mutation, so all 130 is about nine hours** — the handover's 3.5 min figure was right and any
+faster estimate is wrong. ⚠️ **It edits files on disk**: `SIGINT` (not `SIGTERM`) lets its
+`finally` restore them, and the way to be sure is to checksum every file it names *before*
+starting. That was done; all 14 came back byte-identical. If there is a long quiet stretch, start
+one — and do not edit the tree while it runs, or a commit can capture a mutated file.
+
+**Reading the words out of a scan, so the name check works on her English material.** Once `pypdf`
+is in for the page cut, text extraction becomes available **for PDFs that have a text layer** — and
+a scan does not. ⚠️ **Measure whether her PDFs have one before building on it.** The real route for
+a scan is OCR, which is a dependency and a cost decision, and it is Graeme's: a model transcript is
+**never** defensible, because a hallucinated name would whitelist itself and the check's own haystack
+would vouch for the spoiler.
+
+**The two remaining pre-existing defects, both coupled-path, both Phase 5.**
+`planning/worksheet.py:329` passes `payload` to `_check_the_evidence` while `content` is what gets
+printed. ⚠️ **Measured: latent today** — the two differ only in `objective` and `success_criteria`,
+both in `NOT_A_TASK` and so excluded from the searched sheet, and `validate_worksheet_content`
+returns its argument unchanged. It becomes a false pass the moment a source is substituted on the
+coupled path. A test that genuinely fails first therefore needs the Phase 5 wiring; changing the
+argument alone is a change no test can see.
+`planning/worksheet.py:195` — the "rules below override anything above them" sentence authorises
+the model to override her source once source rules sit above it. Same phase.
+
+**Then Phases 5–7** as the plan has them.
+
+═══════════════════════════════════════════════════════════════════════════════
+HOW TO WORK HERE
+═══════════════════════════════════════════════════════════════════════════════
+
+- **TDD genuinely.** Failing test first, confirm it fails FOR THE REASON YOU EXPECT, then
+  implement. Then run the positive control. **A mutation nothing catches is the finding.**
+- **A test cannot see a prompt defect.** Fifteen of fifteen defects in this repo were found only
+  by running the real API. `scripts/live_run.py` writes every request, schema and raw reply to
+  `live-runs/<timestamp>/` BEFORE parsing. ⚠️ A clean live run reads no refusal, so it verifies
+  nothing about one. When the thing you changed only fires on failure, cause the failure.
+- **The artefacts are a corpus, not a receipt.** `scripts/sweep_refusals.py` and
+  `scripts/measure_source_drift.py` replay saved replies with no API calls. Sweep before adding a
+  guard, not after.
+- **Read the artefact before changing anything.** Three worksheet defects produced an identical
+  error message from three different causes.
+- **A guard that refuses correct work is worse than no guard** — invisible on a green suite, and
+  it surfaces as the teacher being told her correct work is wrong. But make a wrong guard RIGHT,
+  never soften it. ⚠️ And a guard can be wrong by being too LOOSE, which is worse: a refusal is
+  visible and gets a second attempt, while a false pass hands a child a sheet that proves nothing.
+- **A refusal the model will read is an instruction, not a description.**
+- **Deterministic checks only. No AI judging AI.**
+- **Check current API guidance before changing how a call is made.** Done 2026-09-18: the model
+  this app calls is `claude-haiku-4-5-20251001`, its ceiling is 64,000 output tokens, and a reply
+  above roughly 16,000 must be streamed or the server closes the connection — which is what
+  happened here on 2026-09-02. `MAX_REPLY_TOKENS` is 16,384 for that reason, not the model's
+  ceiling.
+- **`app.py` stays structurally untouched.** No refactor. It has almost no coverage and it works.
+  ⚠️ `GENERATOR_MAP` at `app.py:765` is parsed as text by TWO tests
+  (`tests/test_worksheet_document.py` regex, `tests/test_smoke.py` ast) — do not change its shape.
+- **Verify a claim against the code before repeating it.** A Codex review this session made nine
+  findings; seven were real and are fixed, one was a stale snapshot of a file it was reading while
+  this session edited it, and one was a coverage gap already recorded in the plan. It also
+  reported an accent case at 0.00 that measured 0.333 here. Check.
+- ⚠️ **Run the suite with nothing else running.** The Streamlit `AppTest` tests time out at 30
+  seconds under load: two concurrent runs produced two *different* pairs of failures in
+  `tests/test_plan_page_runs.py`, both timeouts rather than assertions, and the file passes 57/57
+  on its own. A "failure" seen while something else is running is probably not one.
+- ⚠️ **`scripts/mutate.py` is slower than previously recorded: about 3.5 minutes per mutation, so
+  all 96 is closer to six hours than two, and it has still never completed a full run.**
+  `scripts/mutate.py <substring>` filters by label **or file**, which is how every control this
+  session was run — and a filtered run measures the mutations it ran and nothing else. ⚠️ It edits
+  files on disk and restores them in a `finally`, so **killing it leaves a mutation applied** —
+  and `planning/source_material.py` is untracked, so `git checkout` will not save you. If you stop
+  it, check for a left-over mutation by hand.
+
+═══════════════════════════════════════════════════════════════════════════════
+GRAEME IS NOT A CODER
+═══════════════════════════════════════════════════════════════════════════════
+
+Updates go: what's true now, anything blocked on him, then ALWAYS what's next. No file names, no
+jargon, no commit references. He has said more than once that things run long — answer in one or
+two sentences and add detail only if asked. "You over complicate things" is direct feedback he has
+given; the four-heading shape is a ceiling for a real handover, not a template for a reply.
+
+✅ **Both open questions about her material are answered** — see the 2026-09-21 section near the
+top. `MAX_SOURCE_CHARS` is confirmed correctly sized and is no longer a guess.
+
+⚠️ **Still open, and only she can answer it:** whether her PDFs are photographs of pages or real
+documents with a text layer. Graeme's answer says "scan/photo of the book pages", which implies no
+text layer — but that is his phrasing, not a file anyone has opened. **Measure it on a real file
+she sends before building anything on text extraction.** Not blocking the page picker, which works
+on a scan either way.
+
+⚠️ **Two plans, two different "Phase 4"s — do not confuse them.** The source-material plan's Phase 4
+is the name check (done). The original project plan's Phase 4 is worksheet coupling (done long ago,
+`planning/worksheet.py`). When a note says "Phase 4", check which plan it belongs to.
+
+Pick up at "YOUR TASK: THE PAGE PICKER ON UPLOADS". The worksheet slice is otherwise finished.
+⚠️ **It is all still only on this laptop** — nothing has been committed or pushed, and her live app
+is untouched.

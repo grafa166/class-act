@@ -2,3 +2,9 @@ streamlit>=1.30.0,<2.0.0
 python-docx>=1.1.0,<2.0.0
 anthropic>=1.0.0,<2.0.0
 python-dotenv>=1.0.0,<2.0.0
+# Cutting an uploaded PDF to the pages the children have reached
+# (`planning/source_material.py`). It has to be here rather than in the dev
+# requirements: this file is the deploy list, and the page picker is the one
+# defence that stops a chapter scan uploaded for lesson two being read for
+# lesson six. Pure Python, nothing to compile, so it is safe for the hosted app.
+pypdf>=5.0.0,<7.0.0

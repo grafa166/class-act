@@ -359,6 +359,484 @@ MUTATIONS = {
         "    ).strip()",
         "    title = str(unit_title).strip()",
     ),
+
+    # ---- the text she brings ----
+    "any kind of worksheet is allowed a source": (
+        "planning/source_material.py",
+        "    capability = SOURCE_CAPABILITY.get(worksheet_type)\n"
+        "    if capability is NOT_FROM_A_TEXT:",
+        "    capability = SOURCE_CAPABILITY.get(worksheet_type)\n"
+        "    if False:",
+    ),
+    "SOFTENED: a fill-in-the-gaps sheet claims it can print the source exactly": (
+        "planning/source_material.py",
+        '    "cloze": BUILDS_FROM_THE_SOURCE,',
+        '    "cloze": PRINTS_THE_SOURCE,',
+    ),
+    "SOFTENED: a photograph is treated as words we hold": (
+        "planning/source_material.py",
+        "        return bool(self.text.strip())",
+        "        return True",
+    ),
+    "a worksheet type the matrix has never heard of is allowed a source anyway": (
+        "planning/source_material.py",
+        "    capability = SOURCE_CAPABILITY.get(worksheet_type)\n"
+        "    if capability is None:\n"
+        "        return {}",
+        "    capability = SOURCE_CAPABILITY.get(worksheet_type, PRINTS_THE_SOURCE)\n"
+        "    if False:\n"
+        "        return {}",
+    ),
+    "a source of any length is sent to Anthropic": (
+        "planning/source_material.py",
+        "    if len(tidied) > MAX_SOURCE_CHARS:",
+        "    if False:",
+    ),
+    "her single line breaks stop becoming paragraphs, so the page runs them together": (
+        "planning/source_material.py",
+        '        pieces = [" ".join(line.split()) for line in text.split("\\n")]',
+        "        pieces = [text]",
+    ),
+    "an action nobody has heard of is accepted": (
+        "planning/source_material.py",
+        "    if source_action not in WORKSHEET_ACTIONS:",
+        "    if False:",
+    ),
+
+    # ---- her text on the page, and the reply that never used it ----
+    "a sheet that used none of her text is handed over anyway": (
+        "planning/source_material.py",
+        "    if closeness < TOO_FAR_FROM_HER_TEXT and source_action in REPRODUCES_HER_TEXT:",
+        "    if False:",
+    ),
+    "SOFTENED: the refusal line drops below every ignored reply ever measured": (
+        "planning/source_material.py",
+        "TOO_FAR_FROM_HER_TEXT = 0.10",
+        "TOO_FAR_FROM_HER_TEXT = 0.005",
+    ),
+    "SOFTENED: a rewrite is close enough to be overwritten with her original": (
+        "planning/source_material.py",
+        "CLOSE_ENOUGH_TO_SUBSTITUTE = 0.90",
+        "CLOSE_ENOUGH_TO_SUBSTITUTE = 0.50",
+    ),
+    "SOFTENED: the comparison counts single words instead of phrasing": (
+        "planning/source_material.py",
+        "    return set(zip(words, words[1:]))",
+        "    return {(w,) for w in words}",
+    ),
+    "a photograph is compared against words we never held": (
+        "planning/source_material.py",
+        "    if not source_material.is_held:\n"
+        "        return SourceOutcome(\n"
+        "            content=content,\n"
+        "            origin=source_material.origin,\n"
+        "            why_not_checked=CANNOT_READ_IT,\n"
+        "        )",
+        "    if False:\n"
+        "        return SourceOutcome(\n"
+        "            content=content,\n"
+        "            origin=source_material.origin,\n"
+        "            why_not_checked=CANNOT_READ_IT,\n"
+        "        )",
+    ),
+    "a sheet that builds tasks from the text is compared to it as if it printed it": (
+        "planning/source_material.py",
+        "    where = WHERE_THE_PROSE_GOES.get(worksheet_type)\n"
+        "    if where is None:",
+        '    where = WHERE_THE_PROSE_GOES.get(worksheet_type, ("passage", "text"))\n'
+        "    if False:",
+    ),
+    "the adaptation she asked for is overwritten with the original": (
+        "planning/source_material.py",
+        "    if source_action in REPRODUCES_HER_TEXT and closeness >= CLOSE_ENOUGH_TO_SUBSTITUTE:",
+        "    if closeness >= CLOSE_ENOUGH_TO_SUBSTITUTE:",
+    ),
+    "the reply is corrected in place, so the saved artefact stops being evidence": (
+        "planning/source_material.py",
+        "        corrected = copy.deepcopy(content)",
+        "        corrected = content",
+    ),
+    "a passage half hers and half invented goes to her with nothing said": (
+        "planning/source_material.py",
+        "    if source_action in REPRODUCES_HER_TEXT:\n"
+        "        flags = (\n"
+        '            "Some of this passage is not from the text you supplied.',
+        "    if False:\n"
+        "        flags = (\n"
+        '            "Some of this passage is not from the text you supplied.',
+    ),
+    "an empty passage is reported as checked against her text": (
+        "planning/source_material.py",
+        "    if not printed.strip():",
+        "    if False:",
+    ),
+    "a vocabulary box about the passage we deleted is printed anyway": (
+        "planning/source_material.py",
+        "        stray = vocabulary_not_in_the_passage(corrected, source_material.text)\n"
+        "        if stray:",
+        "        stray = vocabulary_not_in_the_passage(corrected, source_material.text)\n"
+        "        if False:",
+    ),
+    "SOFTENED: a vocabulary word need only appear inside another word": (
+        "planning/source_material.py",
+        "    return len(word) >= 4 and any(page.startswith(word) for page in printed_words)",
+        "    return any(word in page for page in printed_words)",
+    ),
+    "SOFTENED: a vocabulary word must match the page letter for letter": (
+        "planning/source_material.py",
+        "    if word in printed_words:\n        return True\n"
+        "    return len(word) >= 4 and any(page.startswith(word) for page in printed_words)",
+        "    return word in printed_words",
+    ),
+    "a vocabulary word that is not on the page is never mentioned": (
+        "planning/source_material.py",
+        "                flags=_vocabulary_flags(content, printed),",
+        "                flags=(),",
+    ),
+    "typography is no longer normalised, so a curled apostrophe is a different word": (
+        "planning/source_material.py",
+        "    for odd, plain in _TYPOGRAPHY.items():\n        text = text.replace(odd, plain)",
+        "    pass",
+    ),
+    "the comparison goes back to Latin letters only": (
+        "planning/source_material.py",
+        "    return re.findall(r\"[\\w']+\", text)",
+        "    return re.findall(r\"[a-z0-9']+\", text)",
+    ),
+    "SOFTENED: everything is compared as loose words rather than phrasing": (
+        "planning/source_material.py",
+        "    printed_pairs = _word_pairs(printed)\n    if printed_pairs:",
+        "    printed_pairs = _word_pairs(printed)\n    if False:",
+    ),
+    "a short reproduction is scored as if it shared nothing": (
+        "planning/source_material.py",
+        "    printed_words = set(_words(printed))\n    if not printed_words:\n        return 0.0",
+        "    printed_words = set(_words(printed))\n    if True:\n        return 0.0",
+    ),
+    "the rewrite she asked for is refused for not matching her text": (
+        "planning/source_material.py",
+        "    if closeness < TOO_FAR_FROM_HER_TEXT and source_action in REPRODUCES_HER_TEXT:",
+        "    if closeness < TOO_FAR_FROM_HER_TEXT:",
+    ),
+    "a rewrite that used none of her text is handed over with nothing said": (
+        "planning/source_material.py",
+        "    else:\n        flags = (\n            \"This has been rewritten,",
+        "    elif False:\n        flags = (\n            \"This has been rewritten,",
+    ),
+    "the three reasons a sheet was not checked collapse into one sentence": (
+        "planning/source_material.py",
+        "NO_PASSAGE_CAME_BACK = \"The sheet came back with no passage on it to check.\"",
+        "NO_PASSAGE_CAME_BACK = CANNOT_READ_IT",
+    ),
+    "a sheet that prints her text whole is given no room to print it": (
+        "planning/source_material.py",
+        "    room = base_tokens + -(-len(source_material.text) // _CHARS_PER_TOKEN)\n"
+        "    return min(room, MAX_REPLY_TOKENS)",
+        "    return base_tokens",
+    ),
+    "SOFTENED: a source too long to come back is sent anyway": (
+        "planning/source_material.py",
+        "    return min(room, MAX_REPLY_TOKENS)",
+        "    return room",
+    ),
+    "a photograph is described to Claude instead of shown to it": (
+        "planning/source_material.py",
+        "    return [*source_material.blocks, {\"type\": \"text\", \"text\": prompt}]",
+        "    return prompt",
+    ),
+
+    # ---- the name check (report-only) ----
+    "SOFTENED: a shouted word is evidence again, so SEND and EAL are names": (
+        "planning/source_names.py",
+        "    return bool(letters) and letters[0].isupper() and not _is_shouted(token)",
+        "    return bool(letters) and letters[0].isupper()",
+    ),
+    "SOFTENED: a heading is read as prose, so Right Rock is a name": (
+        "planning/source_names.py",
+        "    words = [token for token, _, _ in tokens if any(c.isalpha() for c in token)]\n"
+        "    capitals = [token for token in words if _is_capitalised(token)]",
+        "    return False\n"
+        "    words = [token for token, _, _ in tokens if any(c.isalpha() for c in token)]\n"
+        "    capitals = [token for token in words if _is_capitalised(token)]",
+    ),
+    "SOFTENED: a lone capital opening a line no longer needs corroborating": (
+        "planning/source_names.py",
+        "            if alone_at_the_front and run[0].lower() not in mid_sentence:\n"
+        "                continue",
+        "            if False:\n                continue",
+    ),
+    "SOFTENED: a vetoed heading vouches for the word it capitalised": (
+        "planning/source_names.py",
+        "    speaks = [(segment, tokens) for segment, tokens in read\n"
+        "              if not _case_carries_nothing(tokens)]",
+        "    speaks = [(segment, tokens) for segment, tokens in read]",
+    ),
+    "SOFTENED: Step 3 and Year 3 are names again": (
+        "planning/source_names.py",
+        "            if _is_numbered(segment, tokens, position + len(run) - 1):\n"
+        "                continue",
+        "            if False:\n                continue",
+    ),
+    "SOFTENED: an article or a pronoun counts as a name": (
+        "planning/source_names.py",
+        "            if all(word.lower().split(\"'\")[0] in _NEVER_A_NAME for word in run):\n"
+        "                continue",
+        "            if False:\n                continue",
+    ),
+    "the opening of a quotation stops being the start of a segment": (
+        "planning/source_names.py",
+        "            cut = _opens_a_quotation(text, at)",
+        "            cut = False",
+    ),
+    "🚨 LOOSE: a name is matched by a longer word it sits inside": (
+        "planning/source_names.py",
+        "    return _words_for_matching(name) <= haystack",
+        "    return all(\n"
+        "        any(word in straw for straw in haystack)\n"
+        "        for word in _words_for_matching(name)\n"
+        "    )",
+    ),
+    "🚨 LOOSE: a name is matched by a shorter word inside it": (
+        "planning/source_names.py",
+        "def _is_supported(name, haystack):",
+        "def _is_supported(name, haystack):\n"
+        "    return all(\n"
+        "        any(straw in word for straw in haystack)\n"
+        "        for word in _words_for_matching(name)\n"
+        "    )",
+    ),
+    "🚨 LOOSE: only the top level of the reply is read, not the whole of it": (
+        "planning/source_names.py",
+        "    if isinstance(value, str):\n        yield value",
+        "    if isinstance(value, str):\n        yield value\n"
+        "    elif isinstance(value, dict):\n"
+        "        for item in value.values():\n"
+        "            if isinstance(item, str):\n"
+        "                yield item\n"
+        "        return",
+    ),
+    "🚨 LOOSE: a photograph is reported as having had its names checked": (
+        "planning/source_names.py",
+        "            names_checked=False,\n"
+        "            why_names_not_checked=NAMES_CANNOT_BE_CHECKED,",
+        "            names_checked=True,",
+    ),
+    "the findings are counted and then dropped": (
+        "planning/source_names.py",
+        "        flags=tuple(outcome.flags)\n"
+        "        + tuple(f\"{reason}\\n\\nOn this sheet: “{where}”\" for where, reason in findings),",
+        "        flags=tuple(outcome.flags),",
+    ),
+    "an honorific becomes a name, so Mrs fires on every sheet": (
+        "planning/source_names.py",
+        '    | _words_for_matching(" ".join(_HONORIFICS))',
+        "",
+    ),
+    "the full stop in Mrs. breaks one person into two findings": (
+        "planning/source_names.py",
+        '    return not gap or gap == "."',
+        "    return not gap",
+    ),
+    "the themes stop being part of what she supplied": (
+        "planning/source_names.py",
+        "    _theme_words()\n    | _subject_words()",
+        "    frozenset()\n    | _subject_words()",
+    ),
+    "the label stops saying it is not a promise of a spoiler-free sheet": (
+        "planning/source_names.py",
+        '    "against your text. **This is not a promise the sheet is spoiler-free** — a "',
+        '    "against your text. "',
+    ),
+
+    # ---- the worksheet screen ----
+    "her one hard constraint is defended by nothing but the prompt": (
+        "app.py",
+        "            outcome = with_the_names_checked(",
+        "            outcome = (lambda *a: outcome)(",
+    ),
+    "what she typed is no longer counted as something she supplied": (
+        "app.py",
+        "                (\n"
+        "                    params['effective_topic'],\n"
+        "                    params['effective_objective'],",
+        "                (\n"
+        "                    '',\n"
+        "                    '',",
+    ),
+    "🚨 LOOSE: the honest label is printed beside a sheet nothing was checked on": (
+        "app.py",
+        "    if outcome.names_checked:\n"
+        "        st.caption(f\"\\U0001F50E {THE_HONEST_LABEL}\")",
+        "    if True:\n"
+        "        st.caption(f\"\\U0001F50E {THE_HONEST_LABEL}\")",
+    ),
+    "a finding is swallowed on every sheet that builds from her text": (
+        "app.py",
+        "    for flag in outcome.flags:\n        st.warning(flag)",
+        "    if not outcome.source_checked:\n        return\n"
+        "    for flag in outcome.flags:\n        st.warning(flag)",
+    ),
+    "the findings are nested inside the passage check instead": (
+        "app.py",
+        "    for flag in outcome.flags:\n        st.warning(flag)",
+        "    if outcome.source_checked:\n"
+        "        for flag in outcome.flags:\n            st.warning(flag)",
+    ),
+    # The two faults found on 2026-09-20, each put back. Both were in a tree
+    # with 1,267 tests passing, and both crash on the first press of Generate.
+    "a function is called that nobody imported": (
+        "app.py",
+        "    request_with,\n    room_for_the_source,\n",
+        "",
+    ),
+    "a call hands its arguments over in the wrong order": (
+        "app.py",
+        "                max_tok, params['ws_type_key'], params.get('source_material')",
+        "                max_tok, params.get('source_material'), params.get('source_action')",
+    ),
+
+    # ---- the worksheet screen (existing) ----
+    "a new input is missing from what Regenerate replays": (
+        "app.py",
+        "            'source_material': source_material,\n",
+        "",
+    ),
+    "the source is never sent with the request at all": (
+        "app.py",
+        "                request_with(prompt, params.get('source_material')),",
+        "                prompt,",
+    ),
+    "a long reply is asked for in one piece, as it was on 2026-09-02": (
+        "app.py",
+        "                stream=params.get('source_material') is not None,",
+        "                stream=False,",
+    ),
+    "the guard between the reply and the sheet is skipped": (
+        "app.py",
+        "            outcome = with_the_source_in_place(\n"
+        "                content,\n"
+        "                params['ws_type_key'],\n"
+        "                params.get('source_material'),\n"
+        "                params.get('source_action'),\n"
+        "            )\n"
+        "            content = outcome.content",
+        "            outcome = SourceOutcome(content=content)",
+    ),
+    "a pairing that cannot work is only refused after the tokens are spent": (
+        "app.py",
+        "    if params.get('source_material') is not None:\n"
+        "        try:\n"
+        "            check_the_pairing(params['ws_type_key'], params['source_action'])",
+        "    if False:\n"
+        "        try:\n"
+        "            check_the_pairing(params['ws_type_key'], params['source_action'])",
+    ),
+
+    # ---- what the prompt says about her text ----
+    "the source is placed after the instructions instead of before them": (
+        "llm/prompts.py",
+        "            SOURCE_OPENING.format(source=source_material.text),\n"
+        "            base,",
+        "            base,\n"
+        "            SOURCE_OPENING.format(source=source_material.text),",
+    ),
+    "the law about later parts of the text is dropped": (
+        "llm/prompts.py",
+        '    return "\\n\\n".join([overrides, SOURCE_LAW])',
+        '    return overrides',
+    ),
+    "SOFTENED: a sheet that cannot print prose is told to reproduce it whole": (
+        "llm/prompts.py",
+        "        overrides = BUILDS_OVERRIDES.format(what_to_do=WHAT_TO_DO[source_action])",
+        "        overrides = PRINTS_OVERRIDES.format(\n"
+        "            what_the_passage_is=WHAT_THE_PASSAGE_IS[source_action]\n"
+        "        )",
+    ),
+    "a photograph is sent with an empty source box and rules pointing into it": (
+        "llm/prompts.py",
+        "    if source_material.is_held:\n"
+        "        opening = SOURCE_OPENING.format(source=source_material.text)",
+        "    if True:\n"
+        "        opening = SOURCE_OPENING.format(source=source_material.text)",
+    ),
+    "a prompt with no source quietly gains the source wording anyway": (
+        "llm/prompts.py",
+        "    if source_material is None:\n        return base",
+        "    if False:\n        return base",
+    ),
+
+    # ---- the pages of it she has reached ----
+    "\U0001F6A8 LOOSE: the whole document is sent whatever range she picked": (
+        "planning/source_material.py",
+        "        data = cut_to_pages(data, first, last)\n"
+        "        origin = _named_pages(filename, first, last)",
+        "        cut_to_pages(data, first, last)\n"
+        "        origin = _named_pages(filename, first, last)",
+    ),
+    "the origin stops naming the pages, so the narrowing is invisible": (
+        "planning/source_material.py",
+        "        origin = _named_pages(filename, first, last)",
+        "        origin = filename",
+    ),
+    "a page range the PDF does not have is accepted": (
+        "planning/source_material.py",
+        "    if first < 1 or last > total:",
+        "    if False:",
+    ),
+    "a page range that runs backwards is accepted": (
+        "planning/source_material.py",
+        "    if first > last:",
+        "    if False:",
+    ),
+    "SOFTENED: a selection past the model's page ceiling is sent anyway": (
+        "planning/source_material.py",
+        "    if wanted > MAX_PAGES_AT_ONCE:",
+        "    if False:",
+    ),
+    "SOFTENED: the page ceiling is raised to the one a bigger model has": (
+        "planning/source_material.py",
+        "MAX_PAGES_AT_ONCE = 100",
+        "MAX_PAGES_AT_ONCE = 600",
+    ),
+    "a scan nothing here can open is refused rather than sent whole": (
+        "planning/source_material.py",
+        "    try:\n"
+        "        return len(PdfReader(io.BytesIO(data)).pages)\n"
+        "    except Exception:",
+        "    try:\n"
+        "        return len(PdfReader(io.BytesIO(data)).pages)\n"
+        "    except ZeroDivisionError:",
+    ),
+    "the page cut is made once at upload instead of on every rerun": (
+        "source_panel.py",
+        "    if st.session_state.get(came_from) != stamp:\n"
+        "        # A PDF leaves the box empty. Once per file, because she may type\n"
+        "        # alongside it and a rerun must not wipe what she typed.\n"
+        "        st.session_state[box] = \"\"\n"
+        "        st.session_state[came_from] = stamp",
+        "    if st.session_state.get(came_from) == stamp:\n"
+        "        return None\n"
+        "    st.session_state[box] = \"\"\n"
+        "    st.session_state[came_from] = stamp",
+    ),
+    "an uploaded PDF goes down the once-per-file path like a Word file": (
+        "source_panel.py",
+        "            if _is_a_pdf(upload.name):\n"
+        "                unreadable = _take_the_pdf(upload, box, scan, came_from, namespace)\n"
+        "            else:\n"
+        "                unreadable = _take_the_upload(upload, box, scan, came_from)",
+        "            unreadable = _take_the_upload(upload, box, scan, came_from)",
+    ),
+    "a rerun empties the box she has been typing in beside the PDF": (
+        "source_panel.py",
+        "    if st.session_state.get(came_from) != stamp:",
+        "    if True:",
+    ),
+    "a picker is offered on a file with one page in it": (
+        "source_panel.py",
+        "    if not total or total < 2:\n        return None",
+        "    if not total:\n        return None",
+    ),
 }
 
 
@@ -380,8 +858,18 @@ def failing_tests():
 
 
 def main():
+    # An optional substring, so a guard just written can be proved in minutes
+    # rather than in the two hours the whole file takes. ⚠️ A filtered run is a
+    # measurement of the mutations it ran and of nothing else — the full run is
+    # still the one that has to be clean before anything ships.
+    only = sys.argv[1] if len(sys.argv) > 1 else None
+    if only:
+        print(f"only the mutations whose label or file contains {only!r}\n")
+
     unseen = []
     for label, (name, before, after) in MUTATIONS.items():
+        if only and only.lower() not in f"{label} {name}".lower():
+            continue
         target = ROOT / name
         original = target.read_text()
         print(f"\n{label}")

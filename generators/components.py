@@ -830,8 +830,20 @@ def add_reading_passage(doc, passage_data, theme_key='classic', level='expected'
     padding = diff['padding']
     set_cell_padding(cell, top=padding, bottom=padding, left=200, right=200)
 
-    # Split passage into paragraphs on double newlines
-    text = passage_data.get('text', '')
+    # Her breaks, however she drew them. ⚠️ This used to split on a blank line
+    # and only on a blank line, so a passage whose paragraphs are separated by
+    # single newlines was rendered as one unbroken wall of text -- on the two
+    # sheet types that print prose whole.
+    #
+    # ⚠️ Imported here rather than at module scope: `planning.source_material`
+    # reads `llm.prompts`, and a top-level import either way round is a cycle.
+    # The same deferred-import idiom is used in `llm/prompts.source_instructions`.
+    # One definition, deliberately: the rule that decides what a paragraph is
+    # has to be the same one that tidies the text she pastes in, or her page and
+    # her preview disagree.
+    from planning.source_material import as_paragraphs
+
+    text = as_paragraphs(passage_data.get('text', ''))
     paragraphs = text.split('\n\n') if '\n\n' in text else [text]
 
     for i, para_text in enumerate(paragraphs):

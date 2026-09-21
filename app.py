@@ -32,6 +32,15 @@ WORKSHEET_FONTS = (FONT_NAME, "Verdana", "Tahoma", "Calibri", "Century Gothic")
 from llm.client import generate_worksheet_content
 from llm.prompts import get_prompt
 from llm.validation import WorksheetContentError, validate_worksheet_content
+from planning.source_material import (
+    SourceMaterialError,
+    check_the_pairing,
+    request_with,
+    room_for_the_source,
+    with_the_source_in_place,
+)
+from planning.source_names import THE_HONEST_LABEL, with_the_names_checked
+from source_panel import source_panel
 from generators.cloze import generate_cloze_worksheet
 from generators.word_bank import generate_word_bank_worksheet
 from generators.matching import generate_matching_worksheet
@@ -71,6 +80,11 @@ if 'preview_ready' not in st.session_state:
     st.session_state.preview_ready = False
 if 'regenerate_requested' not in st.session_state:
     st.session_state.regenerate_requested = False
+# What the guard did with her own text, per level. Carried rather than
+# recomputed, so a source dropped somewhere upstream shows on the screen as
+# "not checked" instead of as nothing at all.
+if 'source_outcomes' not in st.session_state:
+    st.session_state.source_outcomes = {}
 
 # ─── Custom CSS ────────────────────────────────────────────────────────────────
 
@@ -760,6 +774,11 @@ with st.expander(f"{theme['icon']} Theme Preview: {theme['name']}", expanded=Fal
             unsafe_allow_html=True,
         )
 
+# Her own text, if she has one. Rendered for every worksheet type: a type that
+# can take no source says so, rather than the control disappearing — a control
+# that vanishes reads as a fault in the app.
+source_material, source_action = source_panel("ws", worksheet_type_key)
+
 # ─── Maps ─────────────────────────────────────────────────────────────────────
 
 GENERATOR_MAP = {
@@ -777,6 +796,45 @@ GENERATOR_MAP = {
 
 
 # ─── Preview Helpers ──────────────────────────────────────────────────────────
+
+
+def _say_what_was_done_with_her_text(outcome):
+    """What the app did with her own text, above the sheet it produced.
+
+    ⚠️ Three states, three sentences, and they must never collapse into one.
+    "Checked and fine" and "not checked at all" look identical to a reader if
+    the screen says nothing in the second case — and a guard that ran on
+    nothing while the screen implied it ran is the failure this whole design is
+    built against.
+
+    ⚠️ **Two independent questions, asked separately.** Whether her passage was
+    compared with what got printed is one thing; whether the names on the sheet
+    were compared with her text is another, and a sheet can be either without
+    being both. A cloze sheet never prints a passage whole and every name on it
+    is checkable. So the name label is never an `else` of the passage caption,
+    and the flags render on every path rather than only on the checked one —
+    the early return that used to sit here swallowed them on five of the seven
+    types that take a source.
+    """
+    if outcome is None or not outcome.origin:
+        return
+
+    if outcome.source_checked and outcome.substituted:
+        st.caption(
+            f"\U0001F4C4 The passage on this sheet is **{outcome.origin}**, word for word."
+        )
+    elif outcome.source_checked:
+        st.caption(f"\U0001F4C4 Built from **{outcome.origin}**.")
+    else:
+        st.caption(f"\U0001F4C4 **{outcome.origin}** — {outcome.why_not_checked}")
+
+    if outcome.names_checked:
+        st.caption(f"\U0001F50E {THE_HONEST_LABEL}")
+    elif outcome.why_names_not_checked:
+        st.caption(f"\U0001F50E {outcome.why_names_not_checked}")
+
+    for flag in outcome.flags:
+        st.warning(flag)
 
 
 def _pieces_to_preview_text(pieces):
@@ -1190,12 +1248,28 @@ if generate_btn or _regenerating:
             'font': font,
             'include_answer_key': include_answer_key,
             'levels': levels_to_generate,
+            # ⚠️ Anything read back out of here and not written into it comes
+            # back empty on Regenerate, silently. `test_source_panel.py` pins
+            # the two sets to each other so the next input cannot be forgotten.
+            'source_material': source_material,
+            'source_action': source_action,
         }
 
     params = st.session_state.generation_params
 
+    # A pairing that cannot work is refused before a token is spent on it.
+    # After the params are resolved rather than before, so that a Regenerate is
+    # checked too -- still ahead of every request.
+    if params.get('source_material') is not None:
+        try:
+            check_the_pairing(params['ws_type_key'], params['source_action'])
+        except SourceMaterialError as refused:
+            st.error(str(refused))
+            st.stop()
+
     # Clear previous content
     st.session_state.generated_content = {}
+    st.session_state.source_outcomes = {}
     st.session_state.preview_ready = False
 
     progress_bar = st.progress(0)
@@ -1222,21 +1296,54 @@ if generate_btn or _regenerating:
                 theme_icon=params['theme_icon'],
                 level=level,
                 subject=params.get('subject', 'English'),
+                source_material=params.get('source_material'),
+                source_action=params.get('source_action'),
             )
 
             # Longer prompts need more tokens
             max_tok = 6144 if params['ws_type_key'] in (
                 'reading_comprehension', 'problem_solving', 'investigation'
             ) else 4096
+            max_tok = room_for_the_source(
+                max_tok, params['ws_type_key'], params.get('source_material')
+            )
             content = generate_worksheet_content(
-                prompt, max_tokens=max_tok,
+                request_with(prompt, params.get('source_material')),
+                max_tokens=max_tok,
                 subject=params.get('subject', 'English'),
+                # A reply carrying her text back as well as its questions is the
+                # shape that had its connection closed on 2026-09-02.
+                stream=params.get('source_material') is not None,
             )
 
             # Check the shape before storing it. Valid JSON missing a field it
             # needs would otherwise surface as a bare KeyError from deep inside
             # a generator, which means nothing to a teacher.
             validate_worksheet_content(params['ws_type_key'], content)
+
+            # Unconditional: a no-op without a source, so there is no branch
+            # for anyone to forget. It puts her text back when the reply drifted
+            # from it, and refuses a sheet that used none of it.
+            outcome = with_the_source_in_place(
+                content,
+                params['ws_type_key'],
+                params.get('source_material'),
+                params.get('source_action'),
+            )
+            content = outcome.content
+            # Report-only: every name on the sheet against her text, plus
+            # everything she typed or chose. Nothing here refuses.
+            outcome = with_the_names_checked(
+                outcome,
+                params.get('source_material'),
+                (
+                    params['effective_topic'],
+                    params['effective_objective'],
+                    params.get('subject', ''),
+                    params['theme_name'],
+                ),
+            )
+            st.session_state.source_outcomes[level] = outcome
             st.session_state.generated_content[level] = content
             # Count it only once it succeeded — a failed call should not eat
             # into the day's allowance.
@@ -1284,6 +1391,13 @@ if generate_btn or _regenerating:
         _clear_progress(progress_bar, status_text)
         st.error(f"Anthropic returned an error (status {e.status_code}).")
         st.info("If this keeps happening, check status.anthropic.com.")
+    except SourceMaterialError as e:
+        # Not a fault in the app and not a fault in the key: the sheet came
+        # back without her text in it, and the message says which pairing to
+        # change. Kept above the generic handler so it is not swallowed as an
+        # unexpected error.
+        _clear_progress(progress_bar, status_text)
+        st.error(str(e))
     except WorksheetContentError as e:
         _clear_progress(progress_bar, status_text)
         st.error(f"The generated content was unusable: {e}")
@@ -1315,6 +1429,9 @@ elif st.session_state.preview_ready and st.session_state.generated_content:
             f"{level_label}",
             expanded=(len(st.session_state.generated_content) == 1),
         ):
+            _say_what_was_done_with_her_text(
+                st.session_state.source_outcomes.get(level)
+            )
             render_content_preview(content, params['ws_type_key'])
 
     # Action buttons
@@ -1323,6 +1440,7 @@ elif st.session_state.preview_ready and st.session_state.generated_content:
         if st.button("\U0001F504 Regenerate", use_container_width=True, key="regenerate_btn"):
             st.session_state.preview_ready = False
             st.session_state.generated_content = {}
+            st.session_state.source_outcomes = {}
             st.session_state.regenerate_requested = True
             st.rerun()
     with col_build:

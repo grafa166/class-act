@@ -1389,6 +1389,126 @@ _PROMPT_ALIASES: Dict[str, str] = {
 }
 
 
+SOURCE_OPENING = """THE TEXT THE TEACHER SUPPLIED. This is the source material for this worksheet.
+
+<<<SOURCE
+{source}
+SOURCE>>>
+"""
+
+# 🚨 A PDF or a photograph has no text to put between the markers. Printing
+# them empty produced `<<<SOURCE\n\nSOURCE>>>` followed by rules telling the
+# model to take every question and every vocabulary word from between them --
+# an empty box and a contradiction, with nothing naming the document that was
+# actually attached. Measured 2026-09-18, and not an edge case: Word files and
+# PDFs are expected to be roughly half her material each.
+#
+# The rules below this speak of "the text between the markers" throughout, so
+# rather than writing a second copy of all of them, this says what that phrase
+# means when there are no markers.
+SOURCE_ATTACHED = """THE TEXT THE TEACHER SUPPLIED is the document attached to this message ({origin}). \
+It is the source material for this worksheet.
+
+Everywhere the rules below say "the text between the markers", they mean that attached document. \
+Read it. There is no other copy of it in this message."""
+
+# She asked for this in these words: "if I upload only part of a story/text, the
+# lesson planner should only use what I've supplied and not assume or reveal
+# later parts." Stated unconditionally, because a flag is a thing someone can
+# forget to set.
+SOURCE_LAW = """The text between the markers is the whole of what exists. It may be an extract from
+something longer. You do not have the rest of it. Do not continue it, do not summarise what comes
+next, do not name anything or anyone that appears later, and do not write as if you know how it
+ends. If a question cannot be answered from what is between the markers, do not ask it."""
+
+# ⚠️ These override numbered rules INSIDE the ten templates, which were written
+# on the assumption that the model invents its own passage: the passage must be
+# self-contained and answer every question, the vocabulary must come from it,
+# and it must be themed. Leaving those standing and overwriting the passage
+# afterwards prints her story above questions about a story that no longer
+# exists -- an adversarial pass caught that before it was built.
+#
+# Measured live 2026-09-15 (`scripts/probe_source_types.py`): overriding them
+# from an appended block works -- passage word for word, 6 of 6 vocabulary words
+# drawn from her text, 8 of 8 questions on it. That is why no template constant
+# is edited and the no-source prompt is still byte-identical.
+PRINTS_OVERRIDES = """THE RULES BELOW OVERRIDE THE NUMBERED RULES IN THE INSTRUCTIONS ABOVE.
+
+1. {what_the_passage_is}
+2. Every question must be about the text between the markers and answerable from it. This
+   replaces any rule above about the passage being self-contained.
+3. Every vocabulary word must be a word that appears in the text between the markers. This
+   replaces any rule above about drawing vocabulary from a passage you wrote.
+4. The theme decorates the page only -- the border, the title, the encouraging asides. It never
+   changes her text and it never enters a question or a vocabulary word. This overrides any rule
+   above about theming the passage."""
+
+BUILDS_OVERRIDES = """THE RULES BELOW OVERRIDE THE NUMBERED RULES IN THE INSTRUCTIONS ABOVE.
+
+1. Build the tasks on this sheet out of the text between the markers -- its sentences, its words,
+   its ideas. {what_to_do}
+2. This kind of sheet does not print the text whole, so do not try to reproduce all of it. Take
+   from it what the tasks need.
+3. Every word, name and idea you use must come from the text between the markers.
+4. The theme decorates the page only. It never changes her text and never enters a task."""
+
+WHAT_THE_PASSAGE_IS = {
+    "use_exactly": (
+        "The text between the markers IS the passage. Reproduce it exactly, word for word, "
+        "punctuation for punctuation, as the passage text. Do NOT write a passage of your own, "
+        "do not shorten it and do not tidy it. This overrides any instruction above telling you "
+        "to create a passage of a given length."
+    ),
+    "adapt": (
+        "Rewrite the text between the markers so a Year 3 reader can access it -- shorter "
+        "sentences, simpler words, the same events in the same order -- and use YOUR REWRITE as "
+        "the passage. Keep every character, place and event that is in the original. Add none. "
+        "This overrides any instruction above about inventing a passage."
+    ),
+    "questions_from": (
+        "The text between the markers IS the passage. Reproduce it exactly, word for word, as "
+        "the passage text. Your work here is the questions, not the text. This overrides any "
+        "instruction above telling you to create a passage."
+    ),
+    "scaffolds_around": (
+        "The text between the markers IS the passage. Reproduce it exactly, word for word, as "
+        "the passage text. Your work here is the support around it -- the vocabulary, the "
+        "sentence starters, the prompts. This overrides any instruction above telling you to "
+        "create a passage."
+    ),
+}
+
+WHAT_TO_DO = {
+    "use_exactly": "Use its own sentences and words in the tasks wherever you can.",
+    "adapt": "Make the language easier to access without changing what it says.",
+    "questions_from": "The tasks should make a child look back at the text to answer them.",
+    "scaffolds_around": (
+        "The tasks should help a child get into the text -- the words they will need, the "
+        "sentence shapes, the way in."
+    ),
+}
+
+
+def source_instructions(source_material, source_action, worksheet_type) -> str:
+    """The one place the source law is written, for every path that has a source.
+
+    ⚠️ Appended *after* `.format()` has run on the template, never through it, so
+    a source containing a brace cannot break the prompt.
+    """
+    # Imported here rather than at module scope: `planning.source_material`
+    # imports `list_worksheet_types` from this file, so a top-level import
+    # either way round is a cycle.
+    from planning.source_material import PRINTS_THE_SOURCE, SOURCE_CAPABILITY
+
+    if SOURCE_CAPABILITY.get(worksheet_type) is PRINTS_THE_SOURCE:
+        overrides = PRINTS_OVERRIDES.format(
+            what_the_passage_is=WHAT_THE_PASSAGE_IS[source_action]
+        )
+    else:
+        overrides = BUILDS_OVERRIDES.format(what_to_do=WHAT_TO_DO[source_action])
+    return "\n\n".join([overrides, SOURCE_LAW])
+
+
 def get_prompt(worksheet_type: str, **kwargs) -> str:
     """
     Get the appropriate prompt for the given worksheet type.
@@ -1414,6 +1534,11 @@ def get_prompt(worksheet_type: str, **kwargs) -> str:
     Raises:
         ValueError: If the worksheet_type is not recognised.
     """
+    # Her own text, if she supplied one. Popped here so the ten builders keep
+    # their unchanged eight-argument signatures and no template is edited.
+    source_material = kwargs.pop("source_material", None)
+    source_action = kwargs.pop("source_action", None)
+
     # Normalise the worksheet type to lowercase with underscores
     normalised = worksheet_type.strip().lower().replace("-", "_").replace(" ", "_")
 
@@ -1429,7 +1554,28 @@ def get_prompt(worksheet_type: str, **kwargs) -> str:
 
     # Get and call the prompt function
     prompt_fn = _PROMPT_REGISTRY[canonical]
-    return prompt_fn(**kwargs)
+    base = prompt_fn(**kwargs)
+
+    if source_material is None:
+        return base
+
+    # Her material first, the instructions after it, and the rules that
+    # override the template last -- the strongest position, and the ordering
+    # `llm/client.py` documents for content blocks, applied to text.
+    if source_material.is_held:
+        opening = SOURCE_OPENING.format(source=source_material.text)
+    else:
+        opening = SOURCE_ATTACHED.format(
+            origin=source_material.origin or "the file you uploaded"
+        )
+
+    return "\n\n".join(
+        [
+            opening,
+            base,
+            source_instructions(source_material, source_action, canonical),
+        ]
+    )
 
 
 def list_worksheet_types() -> list:
