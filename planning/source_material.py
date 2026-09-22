@@ -569,8 +569,17 @@ def _vocabulary_flags(content, printed):
     )
 
 
-def _without_the_invented_credit(content, worksheet_type):
+def _without_the_invented_credit(content, where):
     """Drop the attribution the model wrote under a passage that is hers.
+
+    ⚠️ **Takes `where` rather than the worksheet type, and that is not tidiness.**
+    Asking `WHERE_THE_PROSE_GOES` a second time in here re-wrote the exact two
+    lines the mutation *"a sheet that builds tasks from the text is compared to
+    it as if it printed it"* quotes — and a mutation is a literal replaced
+    **once**, so it landed on this copy and left the real guard running. The
+    first full `scripts/mutate.py` run ever to complete (2026-09-22) reported
+    `NOTHING FAILED` for it. The 2026-09-04 law applies: fix it by having one
+    definition, never by editing the mutation.
 
     🚨 **Measured, and it is the only evidence there is.** The one reply ever
     generated from a supplied text came back with *"From The Secret Garden by
@@ -592,7 +601,6 @@ def _without_the_invented_credit(content, worksheet_type):
     invention and so is the line under it, and there is nothing here that makes
     one more honest than the other.
     """
-    where = WHERE_THE_PROSE_GOES.get(worksheet_type)
     if where is None:
         return content
 
@@ -627,7 +635,11 @@ def with_the_source_in_place(content, worksheet_type, source_material, source_ac
     if source_material is None:
         return SourceOutcome(content=content)
 
-    content = _without_the_invented_credit(content, worksheet_type)
+    # One lookup, read twice below and nowhere else. ⚠️ A second
+    # `WHERE_THE_PROSE_GOES.get(...)` anywhere in this file disarms the
+    # mutation that guards it — see `_without_the_invented_credit`.
+    where = WHERE_THE_PROSE_GOES.get(worksheet_type)
+    content = _without_the_invented_credit(content, where)
 
     # A PDF or a photograph: Claude can read it, we cannot. There is no
     # haystack, so there is nothing to claim.
@@ -641,7 +653,6 @@ def with_the_source_in_place(content, worksheet_type, source_material, source_ac
     # A sheet that builds tasks from a text prints mostly its own instructions,
     # so comparing it to her extract would refuse correct work — and nothing
     # has measured what a correct one scores.
-    where = WHERE_THE_PROSE_GOES.get(worksheet_type)
     if where is None:
         return SourceOutcome(
             content=content,

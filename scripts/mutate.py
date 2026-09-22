@@ -441,10 +441,13 @@ MUTATIONS = {
     ),
     "a sheet that builds tasks from the text is compared to it as if it printed it": (
         "planning/source_material.py",
-        "    where = WHERE_THE_PROSE_GOES.get(worksheet_type)\n"
-        "    if where is None:",
-        '    where = WHERE_THE_PROSE_GOES.get(worksheet_type, ("passage", "text"))\n'
-        "    if False:",
+        # ⚠️ Re-quoted 2026-09-22. It used to carry the `if where is None:` line
+        # under this one, and a helper added on 2026-09-21 repeated both — so
+        # the replacement landed on the copy and this reported NOTHING FAILED
+        # on the first full run ever completed. The lookup now happens once, so
+        # one line is the whole guard.
+        "    where = WHERE_THE_PROSE_GOES.get(worksheet_type)",
+        '    where = WHERE_THE_PROSE_GOES.get(worksheet_type, ("passage", "text"))',
     ),
     "the adaptation she asked for is overwritten with the original": (
         "planning/source_material.py",
@@ -735,10 +738,13 @@ MUTATIONS = {
     # ---- what the prompt says about her text ----
     "the source is placed after the instructions instead of before them": (
         "llm/prompts.py",
-        "            SOURCE_OPENING.format(source=source_material.text),\n"
+        # ⚠️ Re-quoted 2026-09-22, having gone stale when the PDF fix moved the
+        # opening into a variable. It had been silently unapplied ever since,
+        # and only a full run says so — every run before this one was filtered.
+        "            opening,\n"
         "            base,",
         "            base,\n"
-        "            SOURCE_OPENING.format(source=source_material.text),",
+        "            opening,",
     ),
     "the law about later parts of the text is dropped": (
         "llm/prompts.py",
@@ -829,7 +835,7 @@ MUTATIONS = {
     ),
     "\U0001F6A8 LOOSE: the credit line the model invented is printed under her passage": (
         "planning/source_material.py",
-        "    content = _without_the_invented_credit(content, worksheet_type)",
+        "    content = _without_the_invented_credit(content, where)",
         "    content = content",
     ),
     "the credit line is cleared by editing the reply she was handed": (
