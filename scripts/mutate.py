@@ -881,6 +881,148 @@ MUTATIONS = {
         "    if not total or total < 2:\n        return None",
         "    if not total:\n        return None",
     ),
+    # ---- the two boxes: what pupils do, and what is getting in the way ----
+    "two boxes: the task block is placed after the source law": (
+        "llm/prompts.py",
+        "        task_instructions(task) if task else \"\",\n"
+        "        barrier_instructions(barriers),\n"
+        "        closing,\n",
+        "        barrier_instructions(barriers),\n"
+        "        closing,\n"
+        "        task_instructions(task) if task else \"\",\n",
+    ),
+    "two boxes: a task typed with no upload is dropped (the early return is back)": (
+        "llm/prompts.py",
+        "    opening = closing = \"\"\n",
+        "    if source_material is None:\n        return base\n    opening = closing = \"\"\n",
+    ),
+    "two boxes: the task block no longer says the levels decide how much": (
+        "llm/prompts.py",
+        "- the DIFFERENTIATION LEVEL RULES above, which still decide how many questions there are, how",
+        "- the rules above, which still decide how many questions there are, how",
+    ),
+    "two boxes: the barrier block contradicts the level rules on word meanings": (
+        "llm/prompts.py",
+        '"hard the thinking is. Where a line here asks for more support than those rules give, "\n'
+        '    "the line here wins; nothing here may make the sheet harder."',
+        '"hard the thinking is."',
+    ),
+    "SOFTENED: two boxes: an unknown barrier is sent instead of refused": (
+        "llm/prompts.py",
+        "    if unknown:\n        raise KeyError(f\"not a barrier this app asks about: {sorted(unknown)}\")\n    lines",
+        "    lines",
+    ),
+    "two boxes: the barrier block follows the order she ticked in": (
+        "llm/prompts.py",
+        "[BARRIER_SENTENCES[key] for key in BARRIER_SENTENCES if key in ticked]",
+        "[BARRIER_SENTENCES[key] for key in barriers]",
+    ),
+    "two boxes: writing a lot shrinks nothing": (
+        "planning/support.py",
+        "            space[\"lines\"] = max(1, math.ceil(space[\"lines\"] / 2))",
+        "            space[\"lines\"] = space[\"lines\"]",
+    ),
+    "two boxes: writing a lot can leave no line at all": (
+        "planning/support.py",
+        "            space[\"lines\"] = max(1, math.ceil(space[\"lines\"] / 2))",
+        "            space[\"lines\"] = space[\"lines\"] // 2",
+    ),
+    "two boxes: a barrier makes the sheet harder (more writing)": (
+        "planning/support.py",
+        "            space[\"lines\"] = max(1, math.ceil(space[\"lines\"] / 2))",
+        "            space[\"lines\"] = space[\"lines\"] * 2",
+    ),
+    "two boxes: a third of the questions off, collapsing two levels into one": (
+        "planning/support.py",
+        "len(questions) - QUESTIONS_TAKEN_OFF)",
+        "len(questions) - len(questions) // 3)",
+    ),
+    "SOFTENED: two boxes: writing a lot is claimed on sheets where nothing moves": (
+        "planning/support.py",
+        "        if worksheet_type in WRITING_SPACE:\n            return PRINTED,",
+        "        if True:\n            return PRINTED,",
+    ),
+    "SOFTENED: two boxes: a barrier with nothing printed claims to be printed": (
+        "planning/support.py",
+        "        return ASKED, f\"Claude is asked to start sentences for them. {_NOT_CHECKED}\"",
+        "        return PRINTED, \"sentence starters are printed.\"",
+    ),
+    "two boxes: decoding no longer turns the spacing on": (
+        "planning/support.py",
+        "    return (\"decoding\" in ticked, \"limited_english\" in ticked)",
+        "    return (False, \"limited_english\" in ticked)",
+    ),
+    "two boxes: her reply is edited in place": (
+        "planning/support.py",
+        "    content = copy.deepcopy(content)\n",
+        "",
+    ),
+    "two boxes: the meanings that came back are not counted": (
+        "planning/support.py",
+        "            sentence += _meanings_counted(content, worksheet_type)\n",
+        "            pass\n",
+    ),
+    "SOFTENED: two boxes: a free-text box about the child is added to the barriers": (
+        "support_panel.py",
+        "    if not ticked:\n        return ()\n",
+        "    st.text_area(\"Anything else? (optional)\", key=f\"{namespace}_barrier_note\")\n"
+        "    if not ticked:\n        return ()\n",
+    ),
+    "two boxes: what is shown is a second copy, not what is sent": (
+        "support_panel.py",
+        "        st.code(barrier_instructions(ticked), language=None)",
+        "        st.code(\"\\n\".join(BARRIERS[key] for key in ticked), language=None)",
+    ),
+    "two boxes: the screen stops saying what each sheet can carry": (
+        "support_panel.py",
+        "        st.caption(f\"**{BARRIERS[key]}** — {sentence}\")",
+        "        pass",
+    ),
+    "two boxes: a pasted text in the task box is sent anyway": (
+        "support_panel.py",
+        "    if problem and len(task) > TASK_LIMIT:\n        st.warning(problem)\n        return \"\"",
+        "    if problem and len(task) > TASK_LIMIT:\n        st.warning(problem)\n        return task",
+    ),
+    "two boxes: the objective and the task are not shown together": (
+        "support_panel.py",
+        "        st.info(f\"**Objective:** {objective}\\n\\n**They will:** {task}\")",
+        "        pass",
+    ),
+    "two boxes: her task is not counted as something she supplied": (
+        "app.py",
+        "                    params.get('task') or '',\n",
+        "",
+    ),
+    "two boxes: the barriers are worked out and the sheet printed without them": (
+        "app.py",
+        "            outcome = dataclasses.replace(outcome, content=support.content)\n",
+        "",
+    ),
+    "two boxes: the documents are built without the barriers' print switches": (
+        "app.py",
+        "    extra_spacing = params['extra_spacing'] or barrier_spacing\n",
+        "    extra_spacing = params['extra_spacing']\n",
+    ),
+    "two boxes: the documents are built without the glossary the barriers turn on": (
+        "app.py",
+        "    eal_glossary = params['eal_glossary'] or barrier_glossary\n",
+        "    eal_glossary = params['eal_glossary']\n",
+    ),
+    "two boxes: the task is missing from what Regenerate replays": (
+        "app.py",
+        "            'task': task,\n",
+        "",
+    ),
+    "two boxes: the task never reaches the prompt": (
+        "app.py",
+        "                task=params.get('task'),\n",
+        "",
+    ),
+    "two boxes: the lesson page is silent about the boxes it ignores": (
+        "pages/2_Lesson_Plans.py",
+        "    st.caption(NOT_ON_THIS_PAGE)\n",
+        "",
+    ),
 }
 
 

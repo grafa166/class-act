@@ -4,6 +4,7 @@ A Streamlit app that generates themed, differentiated, dual-coded worksheets
 for Primary School subjects (Year 1-6) using Claude AI.
 """
 
+import dataclasses
 import io
 import zipfile
 import streamlit as st
@@ -41,6 +42,8 @@ from planning.source_material import (
 )
 from planning.source_names import THE_HONEST_LABEL, with_the_names_checked
 from source_panel import source_panel
+from planning.support import print_switches, with_the_barriers_answered
+from support_panel import barriers_panel, show_the_two_sentences, task_box
 from generators.cloze import generate_cloze_worksheet
 from generators.word_bank import generate_word_bank_worksheet
 from generators.matching import generate_matching_worksheet
@@ -85,6 +88,8 @@ if 'regenerate_requested' not in st.session_state:
 # "not checked" instead of as nothing at all.
 if 'source_outcomes' not in st.session_state:
     st.session_state.source_outcomes = {}
+if 'support_outcomes' not in st.session_state:
+    st.session_state.support_outcomes = {}
 
 # ─── Custom CSS ────────────────────────────────────────────────────────────────
 
@@ -593,7 +598,7 @@ with st.sidebar:
 
     # Custom Topic Override
     st.markdown("---")
-    st.markdown("### \u270F\uFE0F Custom Topic (Optional)")
+    st.markdown("### \u270F\uFE0F Your own words (optional)")
     custom_topic = st.text_input(
         "Override with your own topic",
         value="",
@@ -607,6 +612,9 @@ with st.sidebar:
         help="Provide your own objective, or leave blank for the curriculum default.",
         height=80,
     )
+    # What the children actually do -- so she states the task rather than the
+    # app inferring it from the objective alone.
+    task = task_box("ws")
 
     st.markdown("---")
 
@@ -648,6 +656,12 @@ with st.sidebar:
             format_func=lambda x: level_options[x],
             index=1,
         )
+
+    st.markdown("---")
+
+    # Above the supports, because the barrier is the question and the supports
+    # are the answer. Tick-boxes only: nothing typed about a child is sent.
+    barriers = barriers_panel("ws", worksheet_type_key)
 
     st.markdown("---")
 
@@ -701,6 +715,7 @@ with st.sidebar:
 # Resolve effective topic and objective (custom overrides curriculum)
 effective_topic = custom_topic.strip() if custom_topic.strip() else f"{strand} - {topic}"
 effective_objective = custom_objective.strip() if custom_objective.strip() else objective_text
+show_the_two_sentences(effective_objective, task)
 
 # Header — professional gradient banner
 theme = THEMES[theme_key]
@@ -835,6 +850,15 @@ def _say_what_was_done_with_her_text(outcome):
 
     for flag in outcome.flags:
         st.warning(flag)
+
+
+def _say_what_the_barriers_changed(support):
+    """One line per ticked barrier, saying what this sheet did about it --
+    including, out loud, the ones it could not change."""
+    if support is None:
+        return
+    for note in support.notes:
+        st.caption(f"\U0001F9E9 {note}")
 
 
 def _pieces_to_preview_text(pieces):
@@ -1075,6 +1099,10 @@ def generate_for_level(ws_type_key, content, level, theme_key, objective_text,
 def build_and_download(params):
     """Phase 3: Build Word documents from stored content and show download buttons."""
     generated_files = {}
+    # The barriers turn these on, never off -- she may have ticked either.
+    barrier_spacing, barrier_glossary = print_switches(params.get('barriers') or ())
+    extra_spacing = params['extra_spacing'] or barrier_spacing
+    eal_glossary = params['eal_glossary'] or barrier_glossary
 
     progress_bar = st.progress(0)
     status_text = st.empty()
@@ -1096,7 +1124,7 @@ def build_and_download(params):
         doc_buffer = generate_for_level(
             params['ws_type_key'], content, level,
             params['theme_key'], params['effective_objective'],
-            params['extra_spacing'], params['eal_glossary'],
+            extra_spacing, eal_glossary,
             font=params.get('font', FONT_NAME),
         )
         if doc_buffer:
@@ -1122,7 +1150,7 @@ def build_and_download(params):
             answer_buffer = generate_for_level(
                 params['ws_type_key'], content, level,
                 params['theme_key'], params['effective_objective'],
-                params['extra_spacing'], params['eal_glossary'],
+                extra_spacing, eal_glossary,
                 show_answers=True,
                 font=params.get('font', FONT_NAME),
             )
@@ -1253,6 +1281,8 @@ if generate_btn or _regenerating:
             # the two sets to each other so the next input cannot be forgotten.
             'source_material': source_material,
             'source_action': source_action,
+            'task': task,
+            'barriers': barriers,
         }
 
     params = st.session_state.generation_params
@@ -1270,6 +1300,7 @@ if generate_btn or _regenerating:
     # Clear previous content
     st.session_state.generated_content = {}
     st.session_state.source_outcomes = {}
+    st.session_state.support_outcomes = {}
     st.session_state.preview_ready = False
 
     progress_bar = st.progress(0)
@@ -1298,6 +1329,8 @@ if generate_btn or _regenerating:
                 subject=params.get('subject', 'English'),
                 source_material=params.get('source_material'),
                 source_action=params.get('source_action'),
+                task=params.get('task'),
+                barriers=params.get('barriers'),
             )
 
             # Longer prompts need more tokens
@@ -1330,6 +1363,13 @@ if generate_btn or _regenerating:
                 params.get('source_material'),
                 params.get('source_action'),
             )
+            # Then what is getting in the way, answered on the reply itself --
+            # after her text is in place, before the names are checked, so the
+            # check reads the sheet she will actually print.
+            support = with_the_barriers_answered(
+                outcome.content, params['ws_type_key'], params.get('barriers') or ()
+            )
+            outcome = dataclasses.replace(outcome, content=support.content)
             content = outcome.content
             # Report-only: every name on the sheet against her text, plus
             # everything she typed or chose. Nothing here refuses.
@@ -1341,8 +1381,10 @@ if generate_btn or _regenerating:
                     params['effective_objective'],
                     params.get('subject', ''),
                     params['theme_name'],
+                    params.get('task') or '',
                 ),
             )
+            st.session_state.support_outcomes[level] = support
             st.session_state.source_outcomes[level] = outcome
             st.session_state.generated_content[level] = content
             # Count it only once it succeeded — a failed call should not eat
@@ -1432,6 +1474,9 @@ elif st.session_state.preview_ready and st.session_state.generated_content:
             _say_what_was_done_with_her_text(
                 st.session_state.source_outcomes.get(level)
             )
+            _say_what_the_barriers_changed(
+                st.session_state.support_outcomes.get(level)
+            )
             render_content_preview(content, params['ws_type_key'])
 
     # Action buttons
@@ -1441,6 +1486,7 @@ elif st.session_state.preview_ready and st.session_state.generated_content:
             st.session_state.preview_ready = False
             st.session_state.generated_content = {}
             st.session_state.source_outcomes = {}
+            st.session_state.support_outcomes = {}
             st.session_state.regenerate_requested = True
             st.rerun()
     with col_build:

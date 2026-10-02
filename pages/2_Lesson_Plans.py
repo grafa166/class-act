@@ -21,6 +21,7 @@ The lessons themselves are the next piece of work.
 import streamlit as st
 
 from access import check_password
+from support_panel import NOT_ON_THIS_PAGE
 from curriculum import SUBJECT_REGISTRY
 from curriculum.selection import list_objectives, list_topics
 from generators.lesson_plan import (
@@ -647,6 +648,9 @@ def _the_worksheet_for(lesson):
         "It carries this lesson's objective and success criteria word for "
         "word, and has to produce the evidence each criterion names."
     )
+    # These sheets are built by a second path the worksheet screen's two boxes
+    # do not reach yet. Said here, so their absence is not silent.
+    st.caption(NOT_ON_THIS_PAGE)
 
     subject = st.session_state.get("plan_subject", "")
     kinds = list(WORKSHEET_KINDS)

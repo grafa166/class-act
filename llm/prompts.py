@@ -1509,6 +1509,97 @@ def source_instructions(source_material, source_action, worksheet_type) -> str:
     return "\n\n".join([overrides, SOURCE_LAW])
 
 
+# 🚨 Both blocks below go BETWEEN the template and `source_instructions`, never
+# after it. `SOURCE_LAW` is defended by sitting last (measured 2026-09-15), and
+# on a scanned page -- her main English route -- the name check cannot run, so
+# that position is the only defence there is. A task saying "write the next
+# chapter" placed after it would outrank it.
+TASK_MARKER = "WHAT THE TEACHER WANTS PUPILS TO DO ON THIS WORKSHEET"
+
+# 🚨 The three levels are three API calls that differ ONLY by `level`. A task
+# allowed to fix the number of questions or the length turns three sheets into
+# one sheet at three font sizes -- and she pays for three.
+TASK_BLOCK = """{marker} (her words):
+<<<TASK
+{task}
+TASK>>>
+
+Build the activities on this sheet around what she has asked for. It does NOT change:
+- the learning objective, which stays exactly as given above;
+- the DIFFERENTIATION LEVEL RULES above, which still decide how many questions there are, how
+  long any passage is and how much a child writes. Do not take a number of questions or a
+  length from her words;
+- the JSON format above. If her words ask for a task, put it in a field this worksheet already has
+  -- a field the format does not list is never printed."""
+
+BARRIERS_MARKER = "WHAT IS GETTING IN THE WAY"
+
+BARRIERS_HEADER = (
+    f"{BARRIERS_MARKER} for the children this sheet is for. Change how the sheet supports "
+    "them, not what it teaches:"
+)
+
+# One sentence per tick-box, keyed as `planning.support.BARRIERS` is. Nothing she
+# types ever reaches this block: what is sent is one of 128 fixed strings.
+BARRIER_SENTENCES = {
+    "decoding": "- Decoding the words: keep instructions short and use familiar, decodable words in them.",
+    "limited_english": (
+        "- Vocabulary or limited English: give every word in a word bank or vocabulary list a "
+        'short, child-friendly meaning in its "definition" field, even where the level rules '
+        "above leave it out."
+    ),
+    "comprehension": (
+        "- Understanding what they read: ask more questions that find something in the text than "
+        "questions that read between the lines, and keep each question to one idea."
+    ),
+    "forming_sentences": (
+        "- Forming a sentence: where a child writes a sentence, start it for them in the "
+        "instruction (a sentence starter)."
+    ),
+    "writing_length": "- Writing a lot: ask for short written answers; a few words or one sentence is enough.",
+    "remembering_instructions": (
+        "- Remembering the instructions: one instruction per step, in the order they are done, "
+        "and repeat the instruction at the start of each part."
+    ),
+    "working_independently": (
+        "- Working without an adult: make the first item of each part an example the child can "
+        "copy the method from."
+    ),
+}
+
+# ⚠️ A support is a floor, never a ceiling. The cloze and word-bank level rules
+# say an expected sheet's words carry no meanings; the limited-English line asks
+# for them. Without this sentence the model is handed a contradiction.
+BARRIERS_FOOTER = (
+    "The DIFFERENTIATION LEVEL RULES above still decide how many questions there are and how "
+    "hard the thinking is. Where a line here asks for more support than those rules give, "
+    "the line here wins; nothing here may make the sheet harder."
+)
+
+
+def task_instructions(task) -> str:
+    """Her answer to "what should pupils actually do on this worksheet?"
+
+    ⚠️ Appended after `.format()` has run on the template, never through it, so
+    a brace in her words cannot break the prompt. (Here her words are a
+    *value* passed to `.format()`, which is never parsed for braces.)
+    """
+    return TASK_BLOCK.format(marker=TASK_MARKER, task=task.strip())
+
+
+def barrier_instructions(barriers) -> str:
+    """The block for the boxes she ticked, in a fixed order whatever order she
+    ticked them in. An unknown key raises rather than being sent."""
+    ticked = set(barriers)
+    if not ticked:
+        return ""
+    unknown = ticked - set(BARRIER_SENTENCES)
+    if unknown:
+        raise KeyError(f"not a barrier this app asks about: {sorted(unknown)}")
+    lines = [BARRIER_SENTENCES[key] for key in BARRIER_SENTENCES if key in ticked]
+    return "\n".join([BARRIERS_HEADER, *lines, BARRIERS_FOOTER])
+
+
 def get_prompt(worksheet_type: str, **kwargs) -> str:
     """
     Get the appropriate prompt for the given worksheet type.
@@ -1538,6 +1629,10 @@ def get_prompt(worksheet_type: str, **kwargs) -> str:
     # their unchanged eight-argument signatures and no template is edited.
     source_material = kwargs.pop("source_material", None)
     source_action = kwargs.pop("source_action", None)
+    # What she said the children should do, and what is in their way. Popped
+    # for the same reason.
+    task = (kwargs.pop("task", None) or "").strip()
+    barriers = tuple(kwargs.pop("barriers", None) or ())
 
     # Normalise the worksheet type to lowercase with underscores
     normalised = worksheet_type.strip().lower().replace("-", "_").replace(" ", "_")
@@ -1556,26 +1651,32 @@ def get_prompt(worksheet_type: str, **kwargs) -> str:
     prompt_fn = _PROMPT_REGISTRY[canonical]
     base = prompt_fn(**kwargs)
 
-    if source_material is None:
-        return base
+    # ⚠️ No early return when there is no source: a task typed with no upload
+    # would be silently dropped. Each block is simply absent when empty, so a
+    # prompt with nothing added is still the string it has always been.
+    #
+    # Her material first, the template, then her task and the barriers, and
+    # the source rules LAST -- the strongest position, and the ordering
+    # `llm/client.py` documents for content blocks, applied to text. The task
+    # outranks the template; her own text outranks the task.
+    opening = closing = ""
+    if source_material is not None:
+        if source_material.is_held:
+            opening = SOURCE_OPENING.format(source=source_material.text)
+        else:
+            opening = SOURCE_ATTACHED.format(
+                origin=source_material.origin or "the file you uploaded"
+            )
+        closing = source_instructions(source_material, source_action, canonical)
 
-    # Her material first, the instructions after it, and the rules that
-    # override the template last -- the strongest position, and the ordering
-    # `llm/client.py` documents for content blocks, applied to text.
-    if source_material.is_held:
-        opening = SOURCE_OPENING.format(source=source_material.text)
-    else:
-        opening = SOURCE_ATTACHED.format(
-            origin=source_material.origin or "the file you uploaded"
-        )
-
-    return "\n\n".join(
-        [
-            opening,
-            base,
-            source_instructions(source_material, source_action, canonical),
-        ]
-    )
+    blocks = [
+        opening,
+        base,
+        task_instructions(task) if task else "",
+        barrier_instructions(barriers),
+        closing,
+    ]
+    return "\n\n".join(block for block in blocks if block)
 
 
 def list_worksheet_types() -> list:
