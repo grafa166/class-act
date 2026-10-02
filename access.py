@@ -119,6 +119,17 @@ def record_worksheets(count=1):
     return counter["count"]
 
 
+def levels_within_allowance(levels):
+    """`(kept, skipped)`: the levels today's allowance still covers, in order.
+
+    A press makes one sheet per level and each is counted, so a gate asking for
+    one can be overshot by two. Making only what is left is what keeps the
+    ceiling a ceiling -- and the skipped ones are named on screen, not dropped.
+    """
+    room = worksheets_remaining_today()
+    return list(levels[:room]), list(levels[room:])
+
+
 def check_daily_limit(requested=1):
     """Stop generation if today's allowance is spent.
 

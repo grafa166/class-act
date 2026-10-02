@@ -123,3 +123,37 @@ def test_app_calls_the_gate_before_generating():
     assert "if not check_password():" in source, "app.py no longer gates on the password"
     assert "if not check_daily_limit():" in source, "app.py no longer enforces the daily cap"
     assert "record_worksheets(1)" in source, "app.py no longer counts worksheets"
+
+
+# ── A press makes up to three sheets ─────────────────────────────────────────
+# Found 2026-10-02: the gate asked for one worksheet per press while the loop
+# counted one per level, so a press on the last worksheet of the day made three
+# and the ceiling was overshot by two.
+
+
+def test_three_levels_with_one_left_makes_only_one(monkeypatch):
+    monkeypatch.setenv(access.DAILY_LIMIT_SETTING, "5")
+    access.record_worksheets(4 - access.worksheets_used_today())
+    kept, skipped = access.levels_within_allowance(["developing", "expected", "greater_depth"])
+    assert kept == ["developing"]
+    assert skipped == ["expected", "greater_depth"]
+
+
+def test_nothing_is_skipped_while_there_is_room(monkeypatch):
+    monkeypatch.setenv(access.DAILY_LIMIT_SETTING, "50")
+    kept, skipped = access.levels_within_allowance(["developing", "expected", "greater_depth"])
+    assert kept == ["developing", "expected", "greater_depth"] and skipped == []
+
+
+def test_the_app_trims_the_levels_before_the_first_request():
+    import pathlib
+
+    source = (pathlib.Path(access.__file__).parent / "app.py").read_text()
+    block = source[source.index("if generate_btn or _regenerating:"):]
+    trim = block.index("levels_within_allowance(levels_to_generate)")
+    assert trim < block.index("for i, level in enumerate(levels_to_generate):")
+    # ⚠️ The call, not the name: the name also appears in the `if` that guards
+    # it, so checking for the name passed with the warning deleted.
+    assert "st.warning(st.session_state.allowance_note)" in source[source.index("# Phase 2"):], (
+        "the levels that were not made are never mentioned on the screen"
+    )

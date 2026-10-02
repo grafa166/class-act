@@ -1023,6 +1023,22 @@ MUTATIONS = {
         "    st.caption(NOT_ON_THIS_PAGE)\n",
         "",
     ),
+    # ---- the daily allowance ----
+    "allowance: a press on the last worksheet of the day still makes all three": (
+        "app.py",
+        "    levels_to_generate, skipped = levels_within_allowance(levels_to_generate)\n",
+        "    skipped = []\n",
+    ),
+    "allowance: the allowance is ignored inside the helper": (
+        "access.py",
+        "    return list(levels[:room]), list(levels[room:])",
+        "    return list(levels), []",
+    ),
+    "allowance: the levels not made are never mentioned": (
+        "app.py",
+        "        st.warning(st.session_state.allowance_note)",
+        "        pass",
+    ),
 }
 
 

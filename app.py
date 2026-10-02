@@ -19,7 +19,12 @@ from anthropic import (
     RateLimitError,
 )
 
-from access import check_daily_limit, check_password, record_worksheets
+from access import (
+    check_daily_limit,
+    check_password,
+    levels_within_allowance,
+    record_worksheets,
+)
 from curriculum import SUBJECT_REGISTRY, WORKSHEET_TYPE_DISPLAY, WORKSHEET_TYPE_KEY_MAP
 from curriculum.selection import list_objectives
 from generators.styles import FONT_NAME, THEMES, DIFF_LEVELS, YEAR_AGES
@@ -1297,6 +1302,15 @@ if generate_btn or _regenerating:
             st.error(str(refused))
             st.stop()
 
+    # Only as many levels as today's allowance still covers, said out loud.
+    levels_to_generate, skipped = levels_within_allowance(levels_to_generate)
+    st.session_state.allowance_note = (
+        "Today's allowance ran out, so these were not made: "
+        + ", ".join(DIFF_LEVELS[level]['label'] for level in skipped)
+        + "."
+        if skipped else ""
+    )
+
     # Clear previous content
     st.session_state.generated_content = {}
     st.session_state.source_outcomes = {}
@@ -1464,6 +1478,9 @@ elif st.session_state.preview_ready and st.session_state.generated_content:
         'or <b>Regenerate</b> to generate new content.</p></div>',
         unsafe_allow_html=True,
     )
+
+    if st.session_state.get('allowance_note'):
+        st.warning(st.session_state.allowance_note)
 
     for level, content in st.session_state.generated_content.items():
         level_label = DIFF_LEVELS[level]['label']
