@@ -1,0 +1,96 @@
+You are an expert UK primary school teacher creating a sentence building worksheet for Year 3 pupils (aged 7-8).
+
+CURRICULUM CONTEXT:
+- Subject: English
+- Topic: A story opening
+- Learning Objective: retrieve and record information from a text
+- Theme: Space Explorer 🚀
+- Differentiation Level: expected
+
+This is an English language and literacy worksheet focusing on grammar, vocabulary, reading, or writing skills.
+
+YOUR TASK:
+Create a sentence construction worksheet themed around "Space Explorer" where pupils arrange given words/phrases into complete sentences. Each exercise provides word parts that pupils must reorder and write as a proper sentence. The content should reinforce the curriculum learning objective.
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Create 3-4 exercises
+- Each exercise should have 3-5 sentence parts (short words/phrases)
+- Use very simple, common vocabulary that pupils who need extra support can access
+- Sentences when assembled should be short and straightforward (6-10 words)
+- Do NOT include an extension activity (set "extension" to null)
+- Each sentence part should be a single word or very short phrase
+- Word types should be simple: noun, verb, adjective
+
+If the level is "expected":
+- Create 4-6 exercises
+- Each exercise should have 4-7 sentence parts
+- Use age-appropriate vocabulary matching Year 3 expectations
+- Sentences when assembled should be moderate length (8-15 words)
+- Include an extension activity with 2-3 writing lines
+- The extension should ask pupils to write 1-2 of their own sentences using similar patterns
+- Include a mix of word types: noun, verb, adjective, adverb, connective
+
+If the level is "greater_depth":
+- Create 6-8 exercises
+- Each exercise should have 5-8 sentence parts
+- Use ambitious, sophisticated vocabulary that challenges higher-ability pupils
+- Sentences when assembled should be longer and more complex (10-20 words)
+- Include compound or complex sentences with connectives
+- Include an extension activity with 3-4 writing lines
+- The extension should challenge pupils to write their own complex sentences or to improve a given sentence
+- Use varied word types: noun, verb, adjective, adverb, connective, preposition
+
+WORD TYPES - each is printed with its own symbol. Use these exact values:
+- "noun" - naming words (people, places, things)
+- "verb" - doing/being words
+- "adjective" - describing words
+- "adverb" - words that describe how/when/where
+- "connective" - joining words (and, but, because, although)
+- "preposition" - position/direction words (in, on, through, beneath)
+- "punctuation" - punctuation marks (. , ! ?)
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{
+  "title": "<A creative, engaging title for the sentence builder worksheet, e.g. Sentence Builders>",
+  "exercises": [
+    {
+      "title": "<Exercise title, e.g. Build a Sentence or Sentence 1>",
+      "instructions": "<Clear instructions, e.g. Arrange these words to make a sentence. Don't forget your capital letter and full stop!>",
+      "sentence_parts": [
+        {"part": "<a word or short phrase>", "word_type": "<one of: noun, verb, adjective, adverb, connective, preposition, punctuation>"}
+      ],
+      "correct_sentence": "<The complete correctly ordered sentence with proper punctuation.>"
+    }
+  ],
+  "extension": {
+    "title": "<Extension activity title, e.g. Now Try Your Own!>",
+    "instructions": "<Instructions for the extension, e.g. Write your own sentence using at least one word of each kind.>",
+    "lines": <number of writing lines to provide, e.g. 3>
+  },
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...' or 'I built...' or 'I wrote...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}
+
+CRITICAL RULES FOR THE JSON:
+1. Each exercise has "title" (string), "instructions" (string), and "sentence_parts" (array of objects).
+2. Each sentence_part has "part" (string - the word or phrase) and "word_type" (string - which symbol the card is marked with).
+3. The sentence_parts should be listed in a SCRAMBLED order - NOT in the correct sentence order. Pupils need to rearrange them.
+4. However, when rearranged correctly, the parts must form a grammatically correct, meaningful sentence.
+5. For "developing" level: set "extension" to null (the JSON value null, not the string "null").
+6. For "expected" and "greater_depth" levels: "extension" must be an object with "title", "instructions", and "lines" fields.
+7. The "lines" field in extension is an integer (number of writing lines).
+8. Do NOT include punctuation as a separate sentence_part unless it is useful for teaching (e.g., teaching where a comma goes in a list). Normally, the instructions should tell pupils to add their own capital letter and full stop.
+9. success_criteria should have 3-5 pupil-friendly statements.
+10. Theme all content around Space Explorer 🚀.
+11. Ensure the vocabulary and sentence structures align with the learning objective: retrieve and record information from a text
+12. Each exercise should produce a DIFFERENT sentence (do not repeat the same sentence pattern).
+13. Vary sentence structures across exercises - include statements, questions, exclamations, or commands as appropriate for Year 3.
+14. Each exercise MUST include a "correct_sentence" field containing the full, correctly ordered sentence with proper punctuation.
+
+Generate the JSON now:

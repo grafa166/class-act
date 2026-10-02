@@ -1,0 +1,78 @@
+You are an expert UK primary school teacher creating a calculation practice worksheet for Year 3 pupils (aged 7-8).
+
+CURRICULUM CONTEXT:
+- Subject: Maths
+- Topic: A story opening
+- Learning Objective: retrieve and record information from a text
+- Theme: Space Explorer 🚀
+- Differentiation Level: expected
+
+This is a mathematics worksheet. Use age-appropriate mathematical language and notation. Problems should involve real-world contexts where appropriate. Use UK spelling (e.g. 'centre' not 'center', 'colour' not 'color').
+
+YOUR TASK:
+Create a calculation practice worksheet themed around "Space Explorer" with sections of progressively harder calculations. Each section should have clear instructions and space for working out.
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Create 2-3 sections with 4-5 calculations each
+- Use single-step calculations with small, manageable numbers
+- Include visual hints or partially completed examples where appropriate
+- Do NOT include a challenge section (set "challenge" to null)
+
+If the level is "expected":
+- Create 3-4 sections with 5-6 calculations each
+- Use age-appropriate numbers matching Year 3 expectations
+- Progress from simpler to more complex within each section
+- Include a challenge section with 1-2 extension questions
+
+If the level is "greater_depth":
+- Create 4-5 sections with 6-8 calculations each
+- Use challenging numbers and multi-step calculations
+- Include reasoning questions (e.g. "What is the missing number?")
+- Include a challenge section with 2-3 open-ended extension problems
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{
+  "title": "<A creative, engaging title for the worksheet related to the theme>",
+  "sections": [
+    {
+      "title": "<Section title, e.g. Warm-Up Calculations>",
+      "instructions": "<Clear instructions, e.g. Calculate each answer. Show your working out.>",
+      "calculations": [
+        {
+          "question": "<The calculation, e.g. 345 + 278 = ___>",
+          "answer": "<The correct answer, e.g. 623>",
+          "working_hint": "<Optional hint for developing level, e.g. Use column addition. null for others>"
+        }
+      ]
+    }
+  ],
+  "challenge": {
+    "title": "<Challenge section title, e.g. Brain Buster!>",
+    "instructions": "<Instructions for the challenge>",
+    "lines": 3
+  },
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}
+
+CRITICAL RULES FOR THE JSON:
+1. Each section has "title" (string), "instructions" (string), and "calculations" (array).
+2. Each calculation has "question" (string), "answer" (string), and "working_hint" (string or null).
+3. For "developing" level: include "working_hint" for each calculation. Set "challenge" to null.
+4. For "expected" and "greater_depth" levels: set "working_hint" to null. Include "challenge" object.
+5. The "challenge" object has "title" (string), "instructions" (string), and "lines" (int).
+6. Use the correct mathematical notation: + - x or × for multiplication, ÷ for division.
+7. Ensure all calculations are correctly solvable and age-appropriate.
+8. success_criteria should have 3-5 pupil-friendly statements.
+9. Theme section titles around Space Explorer 🚀 to make it engaging.
+10. KEEP QUESTIONS SHORT AND EQUATION-BASED. Write calculations as equations (e.g. "345 + 278 = ___"), NOT as wordy sentences.
+11. If the topic involves fractions, ALWAYS write them as numerator/denominator (e.g. 1/2, 3/4, 2/3). NEVER write fractions as decimals (0.5, 0.75) unless the question explicitly asks for decimal conversion.
+12. For mixed numbers, write as whole number then fraction (e.g. 2 1/3).
+
+Generate the JSON now:

@@ -1,0 +1,102 @@
+You are an expert UK primary school teacher creating a reading comprehension worksheet for Year 3 pupils (aged 7-8).
+
+CURRICULUM CONTEXT:
+- Subject: English
+- Topic: A story opening
+- Learning Objective: retrieve and record information from a text
+- Theme: Space Explorer 🚀
+- Differentiation Level: expected
+
+This is an English language and literacy worksheet focusing on grammar, vocabulary, reading, or writing skills.
+
+YOUR TASK:
+Create a reading comprehension worksheet themed around "Space Explorer" that includes a reading passage followed by comprehension questions. The passage and questions should help pupils work towards the learning objective and be appropriately differentiated.
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Create a passage of 100-150 words
+- Use simple, short sentences (6-10 words per sentence)
+- Use common, everyday vocabulary appropriate for pupils who need extra support
+- Include 4-5 questions, mostly "retrieval" type (answers found directly in the text)
+- Every question MUST have a "word_bank" field with 2-3 hint words to help the pupil
+- Questions should require only 1-2 answer lines
+- Include 3-4 vocabulary words with definitions
+- Marks should be 1 per question
+
+If the level is "expected":
+- Create a passage of 200-300 words
+- Use moderate-length sentences (8-15 words per sentence)
+- Use age-appropriate vocabulary matching Year 3 expectations
+- Include 6-8 questions with a mix of types: retrieval, inference, vocabulary
+- Do NOT include "word_bank" for any question (omit the field entirely)
+- Questions should require 2-3 answer lines
+- Include 4-6 vocabulary words with definitions
+- Marks should be 1-2 per question
+
+If the level is "greater_depth":
+- Create a passage of 300-400 words
+- Use longer, more complex sentences (10-20 words per sentence)
+- Use rich, ambitious vocabulary appropriate for higher-ability Year 3 pupils
+- Include 8-10 questions focusing on inference, author_intent, evaluation, and vocabulary
+- Do NOT include "word_bank" for any question (omit the field entirely)
+- Questions should require 3-4 answer lines
+- Include 5-8 vocabulary words with definitions
+- Marks should be 1-3 per question
+
+QUESTION TYPES - Use these exact values:
+- "retrieval" - answers found directly in the text
+- "inference" - pupils must read between the lines and use clues from the text
+- "vocabulary" - questions about the meaning or effect of specific words/phrases
+- "author_intent" - why the author made specific choices (word choice, structure, etc.)
+- "evaluation" - pupils give their opinion with evidence from the text
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{
+  "title": "<A creative, engaging title for the worksheet related to the theme>",
+  "passage": {
+    "title": "<Title of the reading passage>",
+    "text": "<The full reading passage text. Use \n\n for paragraph breaks.>",
+    "source_note": "<e.g. 'Adapted from...' or null if original>"
+  },
+  "vocabulary": [
+    {
+      "word": "<a vocabulary word from the passage>",
+      "definition": "<child-friendly definition>",
+      "word_type": "<one of: noun, verb, adjective, adverb>"
+    }
+  ],
+  "questions": [
+    {
+      "number": <question number starting from 1>,
+      "question": "<the comprehension question>",
+      "question_type": "<one of: retrieval, inference, vocabulary, author_intent, evaluation>",
+      "marks": <number of marks 1-3>,
+      "lines": <number of answer lines 1-4>,
+      "answer": "<model answer for teacher edition>",
+      "word_bank": ["<hint word 1>", "<hint word 2>"]
+    }
+  ],
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...' or 'I found...' or 'I explained...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}
+
+CRITICAL RULES FOR THE JSON:
+1. The "passage" object must have "title" (string), "text" (string), and "source_note" (string or null).
+2. Use "\n\n" within the passage text to separate paragraphs.
+3. The "vocabulary" array should contain words that appear in the passage and are important for comprehension.
+4. Each question must have: "number" (int), "question" (string), "question_type" (string), "marks" (int), "lines" (int), "answer" (string).
+5. For "developing" level: every question MUST have a "word_bank" field (array of 2-3 hint strings).
+6. For "expected" and "greater_depth" levels: do NOT include "word_bank" in questions.
+7. The "answer" field should contain a complete model answer suitable for a teacher marking guide.
+8. Questions should progress from easier (retrieval) to harder (inference, evaluation).
+9. success_criteria should have 3-5 pupil-friendly statements.
+10. Make the passage genuinely engaging and themed around Space Explorer 🚀.
+11. Ensure the passage is self-contained and provides enough information to answer all questions.
+12. For vocabulary questions, the word being asked about must appear in the passage.
+
+Generate the JSON now:

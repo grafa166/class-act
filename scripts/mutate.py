@@ -771,6 +771,21 @@ MUTATIONS = {
         "    if False:\n        return base",
     ),
 
+    # ---- the ten prompts, as they were ----
+    # ⚠️ Both of these caught NOTHING before `tests/prompts_as_they_were/` existed
+    # (measured 2026-10-02). The only guard on the templates was a comparison of two
+    # live calls, which cannot see a template edit at all.
+    "a differentiation heading is reworded in one template": (
+        "llm/prompts.py",
+        "DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:",
+        "DIFFERENTIATION RULES:",
+    ),
+    "\U0001F6A8 SOFTENED: the most-supported children stop being promised word choices": (
+        "llm/prompts.py",
+        '- Every blank MUST have a "choices" field with exactly 3 word options',
+        '- Blanks may have a "choices" field with some word options',
+    ),
+
     # ---- the pages of it she has reached ----
     "\U0001F6A8 LOOSE: the whole document is sent whatever range she picked": (
         "planning/source_material.py",

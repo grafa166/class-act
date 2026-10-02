@@ -1,0 +1,86 @@
+You are an expert UK primary school teacher creating a science investigation planning worksheet for Year 3 pupils (aged 7-8).
+
+CURRICULUM CONTEXT:
+- Subject: Science
+- Topic: A story opening
+- Learning Objective: retrieve and record information from a text
+- Theme: Space Explorer 🚀
+- Differentiation Level: expected
+
+This is a science worksheet. Use proper scientific terminology appropriate for the year group. Include observational and investigative thinking where appropriate.
+
+YOUR TASK:
+Create a science investigation planner worksheet themed around "Space Explorer" that guides pupils through planning and recording a scientific investigation. The investigation should be linked to the curriculum topic and learning objective.
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Provide the investigation question, prediction, and variable identification pre-filled or with multiple choice
+- Include 3-4 simple method steps
+- Provide a results table with 2-3 columns and 3-4 rows
+- Include 2-3 simple conclusion prompts with sentence starters
+- Use simple, accessible language
+
+If the level is "expected":
+- Provide the investigation question but let pupils write their own prediction
+- Include guidance for identifying variables (what to change, measure, keep the same)
+- Include 4-6 method steps
+- Provide a results table with 3-4 columns and 4-5 rows
+- Include 3-4 conclusion prompts
+- Use age-appropriate scientific language
+
+If the level is "greater_depth":
+- Provide context but let pupils formulate their own question and prediction
+- Expect pupils to identify variables independently (with prompts)
+- Include 5-7 method steps with emphasis on fair testing
+- Provide a results table with 4-5 columns and 5-6 rows
+- Include 4-5 conclusion prompts requiring analysis and evaluation
+- Use ambitious scientific vocabulary
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{
+  "title": "<A creative, engaging title for the investigation worksheet>",
+  "investigation": {
+    "question": "<The investigation question, e.g. How does the height affect how far a ball rolls?>",
+    "prediction": "<A sentence starter for prediction, e.g. I predict that... OR a full prediction for developing>",
+    "prediction_choices": ["<choice 1>", "<choice 2>", "<choice 3>"],
+    "variables": {
+      "change": "<What we will change (independent variable)>",
+      "measure": "<What we will measure (dependent variable)>",
+      "keep_same": ["<control variable 1>", "<control variable 2>", "<control variable 3>"]
+    }
+  },
+  "equipment": ["<item 1>", "<item 2>", "<item 3>"],
+  "method": ["<Step 1>", "<Step 2>", "<Step 3>"],
+  "results_table": {
+    "columns": ["<Column 1 heading>", "<Column 2 heading>", "<Column 3 heading>"],
+    "rows": 4,
+    "units": ["<unit for col 1 or empty>", "<unit for col 2>", "<unit for col 3>"]
+  },
+  "conclusion_prompts": [
+    "<Prompt or sentence starter, e.g. I found out that...>",
+    "<Prompt, e.g. My prediction was correct/incorrect because...>",
+    "<Prompt, e.g. If I did this investigation again, I would...>"
+  ],
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}
+
+CRITICAL RULES FOR THE JSON:
+1. For "developing" level: include "prediction_choices" (array of 3 strings) for multiple choice. Pre-fill "prediction" with a complete prediction.
+2. For "expected" and "greater_depth" levels: set "prediction_choices" to null. "prediction" should be a sentence starter (e.g. "I predict that...").
+3. The "variables" object must have "change" (string), "measure" (string), and "keep_same" (array of strings).
+4. "equipment" is an array of strings listing what pupils need.
+5. "method" is an array of strings, each being a numbered step.
+6. "results_table" has "columns" (array of column heading strings), "rows" (integer - number of data rows), and "units" (array of unit strings matching columns).
+7. "conclusion_prompts" is an array of sentence starters or guided questions.
+8. success_criteria should have 3-5 pupil-friendly statements.
+9. Make the investigation practical, safe, and achievable in a classroom setting.
+10. Theme the investigation around Space Explorer 🚀 where possible.
+11. Ensure the investigation genuinely tests the curriculum learning objective.
+
+Generate the JSON now:

@@ -1,0 +1,98 @@
+You are an expert UK primary school teacher creating a cloze (fill-in-the-blank) worksheet for Year 3 pupils (aged 7-8).
+
+CURRICULUM CONTEXT:
+- Subject: English
+- Topic: A story opening
+- Learning Objective: retrieve and record information from a text
+- Theme: Space Explorer 🚀
+- Differentiation Level: expected
+
+This is an English language and literacy worksheet focusing on grammar, vocabulary, reading, or writing skills.
+
+YOUR TASK:
+Create an engaging cloze passage themed around "Space Explorer" that helps pupils work towards the learning objective. The passage should tell a coherent, imaginative story or explanation that weaves in key vocabulary and concepts from the curriculum objective.
+
+DIFFERENTIATION LEVEL RULES - YOU MUST FOLLOW THESE EXACTLY:
+
+If the level is "developing":
+- Create 2-3 sections
+- Include 4-6 blanks total across all sections
+- Every blank MUST have a "choices" field with exactly 3 word options (the correct word plus 2 plausible distractors)
+- Use simple, short sentences (6-10 words per sentence)
+- Use common, everyday vocabulary appropriate for pupils who need extra support
+- Word bank entries MUST include "definition" fields with child-friendly explanations
+- Sections should have supportive "reminder" prompts
+
+If the level is "expected":
+- Create 3-4 sections
+- Include 8-12 blanks total across all sections
+- Every blank MUST have a "hint" field (a descriptive clue, e.g. "a describing word for size") but NO "choices" field
+- Use moderate-length sentences (8-15 words per sentence)
+- Use age-appropriate vocabulary that matches Year 3 expectations
+- Word bank entries should NOT include "definition" fields
+- Sections should have brief "reminder" prompts
+
+If the level is "greater_depth":
+- Create 4-5 sections
+- Include 12-16 blanks total across all sections
+- Some blanks should have a "hint" field, but at least 3-4 blanks MUST have word_type set to "open" (where the child writes their own creative word)
+- Use longer, more complex sentences (10-20 words per sentence)
+- Use rich, ambitious vocabulary appropriate for higher-ability Year 3 pupils
+- Word bank entries should NOT include "definition" fields
+- Keep "reminder" prompts minimal or omit them
+
+WORD TYPES - Use these exact word_type values and corresponding labels:
+- "time" with label "⏰ When? (Time words)"
+- "adjective" with label "⭐ Describing Words (Adjectives)"
+- "verb" with label "⚡ Doing Words (Verbs)"
+- "noun" with label "● Things & Places (Nouns)"
+- "name" with label "★ Names (Proper Nouns)"
+- "open" with label "✍ Your Own Words" (ONLY for greater_depth level)
+
+YOU MUST OUTPUT VALID JSON matching this EXACT schema. Do not include any text outside the JSON object.
+
+{
+  "title": "<A creative, engaging title for the worksheet related to the theme>",
+  "sections": [
+    {
+      "title": "<SECTION HEADING IN CAPS, e.g. THE BEGINNING>",
+      "reminder": "<A helpful tip for the pupil, e.g. Think about how your story starts! - or null if not needed>",
+      "paragraphs": [
+        [
+          {"type": "text", "text": "<text before the blank>"},
+          {"type": "blank", "word_type": "<one of the word_type values listed above>", "answer": "<the correct word>", "hint": "<descriptive hint for expected/greater_depth>", "choices": ["<option1>", "<option2>", "<option3>"]},
+          {"type": "text", "text": "<text after the blank>"}
+        ]
+      ]
+    }
+  ],
+  "word_bank": [
+    {
+      "word_type": "<matching word_type from above>",
+      "label": "<matching label from above>",
+      "words": [
+        {"word": "<the vocabulary word>", "definition": "<child-friendly definition - ONLY for developing level, omit for others>"}
+      ]
+    }
+  ],
+  "success_criteria": [
+    "<criterion 1 starting with 'I can...' or 'I wrote...' or 'I used...'>",
+    "<criterion 2>",
+    "<criterion 3>"
+  ]
+}
+
+CRITICAL RULES FOR THE JSON:
+1. Each paragraph is an array of segment objects. A segment is either {"type": "text", "text": "..."} or {"type": "blank", ...}.
+2. For "developing" level: every blank MUST have "choices" (array of 3 strings). Do NOT include "hint".
+3. For "expected" level: every blank MUST have "hint" (string). Do NOT include "choices".
+4. For "greater_depth" level: blanks can have "hint" OR have word_type "open". Open blanks need no hint or choices.
+5. The word_bank must contain ALL words used in blanks (except "open" type blanks).
+6. Group words in the word_bank by their word_type. Each word_type should appear only once in the word_bank array.
+7. success_criteria should have 3-5 pupil-friendly statements.
+8. Make the content genuinely engaging and themed around Space Explorer 🚀.
+9. Ensure the passage makes narrative sense when all blanks are correctly filled.
+10. The "definition" field in word_bank entries is ONLY included for "developing" level. For "expected" and "greater_depth", omit it entirely.
+11. Every blank MUST include an "answer" field containing the single correct word that fills the blank.
+
+Generate the JSON now:
