@@ -6,17 +6,25 @@ Work in /Users/graemeheerden/Documents/Claude Code /Class Act, on branch plan-mo
 with .venv/bin/python.
 
 ═══════════════════════════════════════════════════════════════════════════════
-LIVE STATE — measured 2026-10-02 17:13 BST. ⚠️ RE-MEASURE BEFORE BELIEVING IT.
+LIVE STATE — measured 2026-10-02 20:10 BST. ⚠️ RE-MEASURE BEFORE BELIEVING IT.
 ═══════════════════════════════════════════════════════════════════════════════
 
-- **1,407 tests pass. 136 mutations in `scripts/mutate.py`.** Working tree clean.
-- 🔴 **THREE COMMITS ARE COMMITTED AND NOT PUSHED.** `main` is still at `044af73`, unchanged since
-  2026-09-21. The three waiting are: the credit-line fix · two re-armed guards · the prompt
-  snapshot. **Graeme authorised the push; it is waiting for an evening** (see the warning below).
-  First thing: `git log origin/main..HEAD --oneline` and `git status` — do not trust this paragraph.
-- **The source-material feature IS LIVE** on her app as of 2026-09-21: she can upload or paste a
-  text, cut a scanned PDF to the pages the children have reached, and choose what the sheet does
-  with it.
+- **1,754 tests pass. 166 mutations in `scripts/mutate.py`.** Full run 2026-10-02 18:10–20:01
+  (1h50m — ~40s each, NOT the 4 minutes recorded earlier), files checksummed before and after.
+  After re-arming, **one** uncaught: the hosted-database upsert, a known gap (the Postgres path has
+  never run — HANDOVER.md item 17).
+- 🔴 **SEVEN COMMITS ARE COMMITTED AND NOT PUSHED.** `main` still at `044af73`. In order: the
+  credit-line fix · two re-armed guards · the prompt snapshot · the previous handover · **the two
+  boxes (`ad6c5a7`)** · the daily-allowance overshoot fix · five re-armed mutations.
+  First thing: `git log origin/main..HEAD --oneline` — do not trust this paragraph.
+- 🚨 **THE BOXES HAVE NEVER RUN AGAINST THE REAL API.** The key in `.env` returned *"credit balance
+  is too low"* at 17:58 and again at 20:07. Graeme said he would top it up. ⚠️ Whether her
+  PRODUCTION key (Streamlit Secrets) is the same account is **unknown** — if it is, her app was
+  failing tonight. Run `scripts/probe_two_boxes.py` the moment credit exists; artefacts land in
+  `live-runs/<ts>-probe-two-boxes/`. Two empty attempts are already there.
+- 🔑 **Because the boxes sit in the middle of the queue, pushing everything ships them.** To push
+  only what predates them: `git push origin 9b0a042:main`. Ask before any push.
+- **The source-material feature IS LIVE** on her app as of 2026-09-21.
 
 🚨 **SHE IS A LIVE USER AND `main` IS PRODUCTION.** The app is at class-act.streamlit.app and
 deploys from `main`. A push reboots her app within a minute or two, and **because saving is
@@ -48,7 +56,7 @@ READ THESE FIRST, IN THIS ORDER
    **done**; read it for the traps if you touch that lane.
 
 ═══════════════════════════════════════════════════════════════════════════════
-🔴 YOUR TASK: PHASE A — THE TWO BOXES. Nothing is written yet.
+✅ PHASE A — THE TWO BOXES. BUILT 2026-10-02, NOT YET LIVE-TESTED. The design record follows.
 ═══════════════════════════════════════════════════════════════════════════════
 
 Alexandra asked for five things on 2026-10-02 (⚠️ **relayed by Graeme, never confirmed with her
@@ -134,6 +142,28 @@ plan.
 (`components.py:427`, `fraction_practice.py:200`, `calculation_practice.py:153`,
 `reading_comprehension.py:79`), and `components.py:372` is dead code. That is the architectural core
 — a deterministic transform on the JSON produces real printed consequences with no generator change.
+
+**AS BUILT (2026-10-02), where it departs from the design above — each one measured:**
+
+- **Word meanings contradicted the level rules.** Cloze and word-bank level rules say an expected
+  sheet's words carry no `definition`; the limited-English line asks for one. The barrier footer
+  now says a line asking for MORE support wins, and nothing may make a sheet harder.
+- **Questions are cut by a fixed two (never below three), not a fraction.** Templates ask 4–5 /
+  6–8 / 8–10 by level; a third off turned a 5- and a 6-question sheet into 4 each.
+  `test_a_longer_sheet_still_ends_up_longer` caught it.
+- **"Writing a lot" halves each writing space (never below one line) and keeps the task.** The
+  plan said drop challenge/bonus/extension; that is making the work easier, which she said she does
+  not want, and dropping the times-tables speed challenge contradicted the "four types unchanged"
+  finding.
+- **Comprehension = fewer questions on the two question sheets only;** asked-only elsewhere.
+- **Lesson page: scope stated, not wired.** It prints `NOT_ON_THIS_PAGE`. Wiring it means the
+  orphaned-evidence trap the plan records under Phase C.
+- **The barrier seam runs after `with_the_source_in_place` and before `with_the_names_checked`,**
+  so the name check reads the sheet as printed.
+- **Matching and sentence-builder sheets shuffle on purpose** — any test comparing two renders must
+  seed `random`, or it measures the shuffle.
+- **`mutate.py` took any line starting "ERROR" as a broken file**, and Streamlit logs one. It threw
+  away two real catches. Fixed with a positive control.
 
 ═══════════════════════════════════════════════════════════════════════════════
 DECISIONS TAKEN 2026-10-02 — DO NOT REOPEN
@@ -236,9 +266,14 @@ Ask permission, not preference: one yes/no with a recommendation, never a menu o
 WHAT'S NEXT, IN ORDER
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. **Phase A — the two boxes.** Start here. Failing test first.
-2. **Tonight's push** — the three waiting commits go out in one evening reboot rather than three.
-   Ask before pushing.
+1. **The live probe of the boxes** — `scripts/probe_two_boxes.py`, once there is credit. Four
+   questions, two of them deliberate failures: do three levels survive a task and barriers; does a
+   task saying "six questions" collapse them (the block says not to); do word meanings come back on
+   an expected cloze (the level rules say leave them out, the barrier block says the support wins);
+   does "write the next chapter" with her extract get past the source law. **Read the artefacts.**
+   The boxes should not reach her before this.
+2. **Push** — ask first, evenings only. Everything if the probe is clean; otherwise
+   `9b0a042:main` for the four that predate the boxes.
 3. **Phase C — support options and new sheet types** (items 2 and 4). ⚠️ Its first task is not a
    worksheet type but **one completeness test over the six registries that currently fail silently**
    when a type is added: the display map, the eight per-subject lists, `_PREVIEW_RENDERERS`, the
@@ -249,4 +284,4 @@ WHAT'S NEXT, IN ORDER
    documents with a text layer. It decides whether text extraction — and therefore the name check on
    her main English material — is possible at all. Not blocking anything above.
 
-Pick up at "YOUR TASK: PHASE A — THE TWO BOXES".
+Pick up at "WHAT'S NEXT", step 1.
