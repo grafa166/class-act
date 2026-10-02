@@ -716,14 +716,15 @@ MUTATIONS = {
     ),
     "the guard between the reply and the sheet is skipped": (
         "app.py",
+        # ⚠️ Re-quoted 2026-10-02: the barrier seam now sits between this
+        # call and `content = outcome.content`.
         "            outcome = with_the_source_in_place(\n"
         "                content,\n"
         "                params['ws_type_key'],\n"
         "                params.get('source_material'),\n"
         "                params.get('source_action'),\n"
-        "            )\n"
-        "            content = outcome.content",
-        "            outcome = SourceOutcome(content=content)",
+        "            )\n",
+        "            outcome = SourceOutcome(content=content)\n",
     ),
     "a pairing that cannot work is only refused after the tokens are spent": (
         "app.py",
@@ -741,10 +742,12 @@ MUTATIONS = {
         # ⚠️ Re-quoted 2026-09-22, having gone stale when the PDF fix moved the
         # opening into a variable. It had been silently unapplied ever since,
         # and only a full run says so — every run before this one was filtered.
-        "            opening,\n"
-        "            base,",
-        "            base,\n"
-        "            opening,",
+        # Re-quoted again 2026-10-02, when the task and barrier blocks joined
+        # the list.
+        "        opening,\n"
+        "        base,\n",
+        "        base,\n"
+        "        opening,\n",
     ),
     "the law about later parts of the text is dropped": (
         "llm/prompts.py",
@@ -760,15 +763,18 @@ MUTATIONS = {
     ),
     "a photograph is sent with an empty source box and rules pointing into it": (
         "llm/prompts.py",
-        "    if source_material.is_held:\n"
-        "        opening = SOURCE_OPENING.format(source=source_material.text)",
-        "    if True:\n"
-        "        opening = SOURCE_OPENING.format(source=source_material.text)",
+        "        if source_material.is_held:\n"
+        "            opening = SOURCE_OPENING.format(source=source_material.text)",
+        "        if True:\n"
+        "            opening = SOURCE_OPENING.format(source=source_material.text)",
     ),
     "a prompt with no source quietly gains the source wording anyway": (
         "llm/prompts.py",
-        "    if source_material is None:\n        return base",
-        "    if False:\n        return base",
+        # ⚠️ Re-aimed 2026-10-02: the early return it used to defeat is gone
+        # (a task typed with no upload would have been dropped). The failure
+        # it guards is the same -- source rules on a prompt with no source.
+        "    opening = closing = \"\"\n",
+        "    opening = closing = SOURCE_LAW\n",
     ),
 
     # ---- the ten prompts, as they were ----
@@ -1054,7 +1060,11 @@ def failing_tests():
     )
     # A mutation that will not even compile reports as a collection ERROR, not
     # a FAILED, and would otherwise read as "nothing noticed".
-    if any(line.startswith("ERROR ") for line in result.stdout.splitlines()):
+    # ⚠️ Pytest's own summary line, `ERROR tests/...` -- not any line starting
+    # with ERROR. Streamlit logs `ERROR    streamlit.error_util ...` into the
+    # captured output, and on 2026-10-02 that threw away two real catches and
+    # reported a working mutation as malformed.
+    if any(line.startswith("ERROR tests/") for line in result.stdout.splitlines()):
         return ["(the mutated file did not import — the mutation is malformed)"]
     return caught
 
