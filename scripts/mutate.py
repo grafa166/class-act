@@ -890,12 +890,12 @@ MUTATIONS = {
     # ---- the two boxes: what pupils do, and what is getting in the way ----
     "two boxes: the task block is placed after the source law": (
         "llm/prompts.py",
-        "        task_instructions(task) if task else \"\",\n"
+        "        task_instructions(task, kwargs.get(\"level\")) if task else \"\",\n"
         "        barrier_instructions(barriers),\n"
         "        closing,\n",
         "        barrier_instructions(barriers),\n"
         "        closing,\n"
-        "        task_instructions(task) if task else \"\",\n",
+        "        task_instructions(task, kwargs.get(\"level\")) if task else \"\",\n",
     ),
     "two boxes: a task typed with no upload is dropped (the early return is back)": (
         "llm/prompts.py",

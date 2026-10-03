@@ -141,9 +141,11 @@ class TestTheTaskCannotFlattenTheThreeLevels:
     font sizes -- and she pays for three."""
 
     def test_the_task_block_says_the_levels_still_decide_how_much(self):
-        block = task_instructions(TASK)
-        assert "DIFFERENTIATION LEVEL RULES" in block
-        assert "how many questions" in block
+        # ⚠️ The clause, not the phrase: the block names the level rules twice,
+        # so checking the phrase alone passed with this clause deleted
+        # (mutation run, 2026-10-03).
+        block = " ".join(task_instructions(TASK).split())
+        assert "the DIFFERENTIATION LEVEL RULES above, which still decide how many questions" in block
 
     def test_a_number_in_her_words_is_overruled_by_name_for_this_level(self):
         """MEASURED LIVE 2026-10-03 (`live-runs/2026-10-03-154032-probe-two-boxes`):
