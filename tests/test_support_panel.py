@@ -19,7 +19,7 @@ from streamlit.testing.v1 import AppTest
 
 from llm.prompts import barrier_instructions
 from planning.support import BARRIERS, what_this_sheet_does
-from support_panel import TASK_LIMIT, task_box_problem
+from support_panel import TASK_LIMIT, task_as_sent, task_box_problem
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 APP = ROOT / "app.py"
@@ -128,6 +128,48 @@ class TestTheTaskBox:
         problem = task_box_problem("word " * (TASK_LIMIT // 4))
         assert problem is not None
         assert "own text" in problem.lower()
+
+    @pytest.mark.parametrize("task", [
+        "Answer six questions about Mary.",
+        "Write 3 sentences about the rocks.",
+        "Ten questions on the story",
+    ])
+    def test_a_task_that_sets_a_number_is_told_the_levels_decide(self, task):
+        """Measured live 2026-10-03: a number in her words flattened the three
+        levels into one. Whatever the prompt does about it, she is told."""
+        problem = task_box_problem(task)
+        assert problem is not None and "three levels" in problem
+
+    @pytest.mark.parametrize("task,sent", [
+        ("Answer six questions about Mary.", "Answer questions about Mary."),
+        ("Write 3 sentences about the rocks.", "Write sentences about the rocks."),
+        ("Ten questions on the story", "questions on the story"),
+        ("Sort the rocks into two piles.", "Sort the rocks into two piles."),
+    ])
+    def test_the_number_is_taken_out_before_it_is_sent(self, task, sent):
+        """MEASURED LIVE 2026-10-03, twice more after rewording the prompt:
+        6/6/6 and 5/6/6. No instruction beats her explicit number, so it is not
+        sent -- and the screen shows her what is."""
+        assert task_as_sent(task) == sent
+
+    def test_the_screen_shows_the_task_as_it_is_sent(self):
+        at = AppTest.from_file(str(APP), default_timeout=TIMEOUT)
+        at.run()
+        box = next(t for t in at.text_area if t.label == "What should pupils actually do on this worksheet?")
+        box.input("Answer six questions about Mary.")
+        at.run()
+        shown = " ".join(str(i.value) for i in at.info)
+        assert "They will:** Answer questions about Mary." in shown
+        assert any("three levels" in str(w.value) for w in at.warning)
+
+    @pytest.mark.parametrize("task", [
+        "Sort the rocks into two piles.",
+        "Find three clues that Mary is unhappy.",
+        "Label the parts of the plant.",
+    ])
+    def test_a_task_with_a_number_that_is_not_a_count_of_questions_is_left_alone(self, task):
+        """A guard that refuses correct work is worse than no guard."""
+        assert task_box_problem(task) is None
 
     def test_a_task_that_announces_a_different_goal_is_flagged(self):
         problem = task_box_problem("Pupils only need to copy the words, a different objective.")

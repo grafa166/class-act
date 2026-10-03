@@ -18,6 +18,8 @@ not.** Each ticked box says what *this kind of sheet* does about it, rather
 than letting the screen imply all seven are handled.
 """
 
+import re
+
 import streamlit as st
 
 from llm.prompts import barrier_instructions
@@ -51,6 +53,33 @@ NOT_ON_THIS_PAGE = (
 )
 
 
+# A count of questions or writing in her words. ⚠️ Narrow on purpose: "two
+# piles", "three clues" and "label the parts" are tasks, not counts, and a
+# guard that warns about correct work teaches her to ignore its warnings.
+_A_COUNT = re.compile(
+    r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+"
+    r"(questions?|sentences?|lines?)\b",
+    re.I,
+)
+
+SETS_A_NUMBER = (
+    "How many questions there are, and how much they write, comes from the three "
+    "levels — so the number here is taken out before it is sent. Each level makes "
+    "its own amount."
+)
+
+
+def task_as_sent(task):
+    """Her task with any count of questions or writing taken out.
+
+    🚨 MEASURED LIVE 2026-10-03: "Answer six questions about Mary" came back
+    with six at all three levels -- and still 6/6/6 and 5/6/6 after the prompt
+    named the level and said not to use the number. No instruction beats her
+    explicit number, so it is not sent. The screen shows her what is.
+    """
+    return _A_COUNT.sub(lambda found: found.group(2), task.strip())
+
+
 def task_box_problem(task):
     """Why the task box should not be sent as it stands, or None."""
     task = (task or "").strip()
@@ -60,6 +89,10 @@ def task_box_problem(task):
             "the children will read, put it in **Use your own text** further down. "
             "It is not sent from here until it is shorter."
         )
+    # MEASURED LIVE 2026-10-03: a number here flattened all three levels to
+    # it. The prompt now overrules it by name; she is told either way.
+    if _A_COUNT.search(task):
+        return SETS_A_NUMBER
     flags = lowered_objective_flags({"What pupils will do": task})
     if flags:
         return flags[0][1]
@@ -83,9 +116,9 @@ def task_box(namespace):
         st.warning(problem)
         return ""
     if problem:
-        # A flag, never a refusal: the task is still sent.
+        # A flag, never a refusal: the task is still sent -- without any count.
         st.warning(problem)
-    return task
+    return task_as_sent(task)
 
 
 def show_the_two_sentences(objective, task):

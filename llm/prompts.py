@@ -1527,8 +1527,9 @@ TASK>>>
 Build the activities on this sheet around what she has asked for. It does NOT change:
 - the learning objective, which stays exactly as given above;
 - the DIFFERENTIATION LEVEL RULES above, which still decide how many questions there are, how
-  long any passage is and how much a child writes. Do not take a number of questions or a
-  length from her words;
+  long any passage is and how much a child writes. If her words give a number -- of questions,
+  sentences, items or lines -- do NOT use it. Use the number the DIFFERENTIATION LEVEL RULES
+  above give for {for_this_level};
 - the JSON format above. If her words ask for a task, put it in a field this worksheet already has
   -- a field the format does not list is never printed."""
 
@@ -1577,14 +1578,18 @@ BARRIERS_FOOTER = (
 )
 
 
-def task_instructions(task) -> str:
+def task_instructions(task, level=None) -> str:
     """Her answer to "what should pupils actually do on this worksheet?"
 
     ⚠️ Appended after `.format()` has run on the template, never through it, so
     a brace in her words cannot break the prompt. (Here her words are a
     *value* passed to `.format()`, which is never parsed for braces.)
     """
-    return TASK_BLOCK.format(marker=TASK_MARKER, task=task.strip())
+    # 🚨 MEASURED LIVE 2026-10-03: with a general "do not take a number from
+    # her words", "Answer six questions" came back with six at all three
+    # levels. Naming the level this sheet is for is the correction.
+    for_this_level = f'the "{level}" level' if level else "this sheet's level"
+    return TASK_BLOCK.format(marker=TASK_MARKER, task=task.strip(), for_this_level=for_this_level)
 
 
 def barrier_instructions(barriers) -> str:
@@ -1672,7 +1677,7 @@ def get_prompt(worksheet_type: str, **kwargs) -> str:
     blocks = [
         opening,
         base,
-        task_instructions(task) if task else "",
+        task_instructions(task, kwargs.get("level")) if task else "",
         barrier_instructions(barriers),
         closing,
     ]

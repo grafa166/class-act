@@ -1029,6 +1029,26 @@ MUTATIONS = {
         "    st.caption(NOT_ON_THIS_PAGE)\n",
         "",
     ),
+    "two boxes: a count in her task is sent and flattens the three levels": (
+        "support_panel.py",
+        "    return task_as_sent(task)",
+        "    return task",
+    ),
+    "two boxes: the count is taken out of the task inside the helper too": (
+        "support_panel.py",
+        "    return _A_COUNT.sub(lambda found: found.group(2), task.strip())",
+        "    return task.strip()",
+    ),
+    "two boxes: she is not told the number in her task is not used": (
+        "support_panel.py",
+        "    if _A_COUNT.search(task):\n        return SETS_A_NUMBER\n",
+        "",
+    ),
+    "SOFTENED: two boxes: any number at all counts as setting the amount": (
+        "support_panel.py",
+        '    r"(questions?|sentences?|lines?)\\b",',
+        '    r"(\\w+)\\b",',
+    ),
     # ---- the daily allowance ----
     "allowance: a press on the last worksheet of the day still makes all three": (
         "app.py",

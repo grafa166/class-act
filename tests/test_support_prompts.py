@@ -145,6 +145,20 @@ class TestTheTaskCannotFlattenTheThreeLevels:
         assert "DIFFERENTIATION LEVEL RULES" in block
         assert "how many questions" in block
 
+    def test_a_number_in_her_words_is_overruled_by_name_for_this_level(self):
+        """MEASURED LIVE 2026-10-03 (`live-runs/2026-10-03-154032-probe-two-boxes`):
+        "Answer six questions about Mary" came back with exactly six questions
+        at all three levels. The general sentence -- "do not take a number from
+        her words" -- did nothing. The block now names the level it is for."""
+        prompt = get_prompt(
+            worksheet_type="reading_comprehension",
+            task="Answer six questions about Mary.",
+            **{**COMMON, "level": "developing"},
+        )
+        block = prompt[prompt.rindex(TASK_MARKER):]
+        assert "do NOT use it" in block
+        assert '"developing" level' in block
+
     def test_the_task_block_says_the_objective_stands(self):
         assert "objective" in task_instructions(TASK).lower()
 

@@ -17,11 +17,13 @@ LIVE STATE — measured 2026-10-02 20:10 BST. ⚠️ RE-MEASURE BEFORE BELIEVING
   credit-line fix · two re-armed guards · the prompt snapshot · the previous handover · **the two
   boxes (`ad6c5a7`)** · the daily-allowance overshoot fix · five re-armed mutations.
   First thing: `git log origin/main..HEAD --oneline` — do not trust this paragraph.
-- 🚨 **THE BOXES HAVE NEVER RUN AGAINST THE REAL API.** The key in `.env` returned *"credit balance
-  is too low"* at 17:58 and again at 20:07. Graeme said he would top it up. ⚠️ Whether her
-  PRODUCTION key (Streamlit Secrets) is the same account is **unknown** — if it is, her app was
-  failing tonight. Run `scripts/probe_two_boxes.py` the moment credit exists; artefacts land in
-  `live-runs/<ts>-probe-two-boxes/`. Two empty attempts are already there.
+- ✅ **THE BOXES RAN LIVE 2026-10-03** (`live-runs/2026-10-03-15*-probe-two-boxes*`). Levels
+  survive a task + barriers (5/8/10 → 3/6/8) · 17 of 17 meanings on an expected cloze · "write the
+  next chapter" with her extract: passage word for word, all eight questions on the page, no new
+  names. 🚨 **"Answer six questions" flattened all three levels to six** — and still 6/6/6 and
+  5/6/6 after the prompt named the level. **No instruction beats her explicit number**, so the count
+  is now taken out before sending (`task_as_sent`) and she is shown what was sent. Re-probed twice:
+  5/8/10 both times.
 - 🔑 **Because the boxes sit in the middle of the queue, pushing everything ships them.** To push
   only what predates them: `git push origin 9b0a042:main`. Ask before any push.
 - **The source-material feature IS LIVE** on her app as of 2026-09-21.
@@ -266,7 +268,7 @@ Ask permission, not preference: one yes/no with a recommendation, never a menu o
 WHAT'S NEXT, IN ORDER
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. **The live probe of the boxes** — `scripts/probe_two_boxes.py`, once there is credit. Four
+1. ✅ **Done 2026-10-03.** The live probe of the boxes — `scripts/probe_two_boxes.py`. Four
    questions, two of them deliberate failures: do three levels survive a task and barriers; does a
    task saying "six questions" collapse them (the block says not to); do word meanings come back on
    an expected cloze (the level rules say leave them out, the barrier block says the support wins);
